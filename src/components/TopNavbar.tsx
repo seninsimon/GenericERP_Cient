@@ -11,8 +11,19 @@ import {
   Divider,
   Progress,
   Loader,
+  Menu,
+  Avatar,
+  UnstyledButton,
 } from "@mantine/core";
-import { IconMoon, IconSun, IconSettings } from "@tabler/icons-react";
+import {
+  IconMoon,
+  IconSun,
+  IconSettings,
+  IconUser,
+  IconLogout,
+  IconChevronDown,
+} from "@tabler/icons-react";
+import { useCurrentUser } from "../auth/AuthContext";
 import { useState } from "react";
 import { useSystemHealth } from "../api/reactQueryHooks/useHealth";
 import { useNavigate } from "react-router-dom";
@@ -26,8 +37,17 @@ export default function TopNavbar({
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const [openedSettings, setOpenedSettings] = useState(false);
 
-  const { data: health, isLoading } = useSystemHealth();
+  const { user, isAdmin, logout } = useCurrentUser();
+  const { data: health, isLoading } = useSystemHealth(isAdmin);
   const navigate = useNavigate();
+
+  const displayName = user.fullName || user.username;
+  const initials = displayName
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <Box
@@ -53,7 +73,7 @@ export default function TopNavbar({
               borderRadius: "8px",
               padding: "4px",
             }}
-            onClick={() => navigate("/settings")}
+            onClick={() => navigate("/")}
           >
             ERP - Zenin
           </Text>
@@ -109,9 +129,11 @@ export default function TopNavbar({
                   ]}
                 />
 
+                {/* System Health (admins only) */}
+                {isAdmin && (
+                <>
                 <Divider />
 
-                {/* System Health */}
                 <Text fw={600} size="sm">
                   System Health
                 </Text>
@@ -142,9 +164,62 @@ export default function TopNavbar({
                     </Stack>
                   </>
                 )}
+                </>
+                )}
               </Stack>
             </Popover.Dropdown>
           </Popover>
+
+          {/* USER MENU */}
+          <Menu position="bottom-end" shadow="md" width={220}>
+            <Menu.Target>
+              <UnstyledButton>
+                <Group gap={8}>
+                  <Avatar size={32} radius="xl" color="blue">
+                    {initials}
+                  </Avatar>
+                  <Box visibleFrom="sm">
+                    <Text size="sm" fw={500} lh={1.2}>
+                      {displayName}
+                    </Text>
+                    <Text size="xs" c="dimmed" lh={1.2}>
+                      {user.role.name}
+                    </Text>
+                  </Box>
+                  <IconChevronDown size={14} />
+                </Group>
+              </UnstyledButton>
+            </Menu.Target>
+
+            <Menu.Dropdown>
+              <Menu.Label>Signed in as {user.username}</Menu.Label>
+              <Menu.Item
+                leftSection={<IconUser size={16} />}
+                onClick={() => navigate("/profile")}
+              >
+                My profile
+              </Menu.Item>
+              {isAdmin && (
+                <Menu.Item
+                  leftSection={<IconSettings size={16} />}
+                  onClick={() => navigate("/settings")}
+                >
+                  Settings
+                </Menu.Item>
+              )}
+              <Menu.Divider />
+              <Menu.Item
+                color="red"
+                leftSection={<IconLogout size={16} />}
+                onClick={() => {
+                  navigate("/");
+                  logout();
+                }}
+              >
+                Sign out
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
         </Group>
       </Group>
     </Box>

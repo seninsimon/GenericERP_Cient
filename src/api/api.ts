@@ -9,7 +9,43 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
+  // send the session cookie (also needed cross-origin from the Vite dev server)
+  withCredentials: true,
 });
+
+// When the session expires, tell the app so it can show the login page.
+export const SESSION_EXPIRED_EVENT = "erp:session-expired";
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const url: string = error.config?.url ?? "";
+    // /auth/me and /auth/login handle their own 401s
+    if (error.response?.status === 401 && !url.startsWith("/auth/")) {
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Server's error message for a failed request, if any.
+export const errorMessage = (error: any, fallback = "Something went wrong") =>
+  error?.response?.data?.message || fallback;
+
+// ---------------- auth ----------------
+
+export const login = (username: string, password: string) =>
+  api.post("/auth/login", { username, password });
+
+export const logout = () => api.post("/auth/logout");
+
+export const getMe = () => api.get("/auth/me");
+
+export const updateProfile = (data: { fullName?: string; email?: string; phone?: string }) =>
+  api.put("/auth/profile", data);
+
+export const changePassword = (data: { currentPassword: string; newPassword: string }) =>
+  api.put("/auth/password", data);
 
 export const getTables = () => api.get("/schema");
 
@@ -18,6 +54,10 @@ export const getSchema = (table: string) =>
 
 export const createTable = (data: any) =>
   api.post("/schema", data);
+
+// drops the table with all its records and uploaded files (admins)
+export const deleteTable = (table: string) =>
+  api.delete(`/schema/${encodeURIComponent(table)}`);
 
 export const addColumn = (table: string, data: any) =>
   api.post(`/schema/${table}/column`, data);
@@ -79,7 +119,15 @@ export const uploadFiles = (files: File[]) => {
 export const updateTableSettings = (table: string, data: any) =>
   api.put(`/schema/${table}`, data);
 
-export const getHealth = () => api.get("/system-health");
+// move every record without a department into departmentId (admins)
+export const assignUnassignedRecords = (table: string, departmentId: string) =>
+  api.put(`/schema/${table}/unassigned`, { departmentId });
+
+// public "is the server up" check
+export const getHealth = () => api.get("/health");
+
+// CPU / RAM / disk (admins only)
+export const getSystemHealth = () => api.get("/system-health");
 
 
 export default api;

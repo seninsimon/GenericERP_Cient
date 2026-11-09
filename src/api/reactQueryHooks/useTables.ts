@@ -2,6 +2,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "../api";
 import { notifications } from "@mantine/notifications";
 
+// show the server's message (e.g. "You don't have permission ...")
+const showError = (error: any) =>
+    notifications.show({
+        title: "Request failed",
+        message: api.errorMessage(error),
+        color: "red",
+    });
+
 export const useTables = () =>
     useQuery({
         queryKey: ["tables"],
@@ -36,6 +44,7 @@ export const useCreateTable = () => {
                 color: "green",
             })
         },
+        onError: showError,
     });
 };
 
@@ -54,6 +63,7 @@ export const useAddColumn = (table: string) => {
                 color: "green",
             });
         },
+        onError: showError,
     });
 };
 
@@ -71,6 +81,7 @@ export const useUpdateColumn = (table: string, column: string) => {
                 color: "green",
             });
         },
+        onError: showError,
     });
 };
 
@@ -88,6 +99,7 @@ export const useDeleteColumn = (table: string) => {
                 color: "green",
             });
         },
+        onError: showError,
     });
 };
 
@@ -125,6 +137,7 @@ export const useInsertData = (table: string) => {
                 color: "green",
             });
         },
+        onError: showError,
     });
 };
 
@@ -143,6 +156,7 @@ export const useUpdateData = (table: string) => {
                 color: "green",
             });
         },
+        onError: showError,
     });
 };
 
@@ -160,6 +174,7 @@ export const useDeleteData = (table: string) => {
                 color: "green",
             });
         },
+        onError: showError,
     });
 };
 
@@ -182,16 +197,17 @@ export const useUpdateTableSettings = () => {
             api.updateTableSettings(table, data),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["tables"] });
+            qc.invalidateQueries({ queryKey: ["schema"] });
             notifications.show({
                 title: "Table settings updated",
                 message: "Table settings updated successfully",
                 color: "green",
             });
         },
-        onError: () => {
+        onError: (error: any) => {
             notifications.show({
                 title: "Error updating table settings",
-                message: "Error updating table settings",
+                message: api.errorMessage(error, "Error updating table settings"),
                 color: "red",
             });
         }

@@ -1,12 +1,15 @@
-import { Stack, Button, Loader, ScrollArea } from "@mantine/core";
+import { Stack, Button, Loader, ScrollArea, Text } from "@mantine/core";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useTables } from "../api/reactQueryHooks/useTables";
+import { useCurrentUser } from "../auth/AuthContext";
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const { table } = useParams();
   const location = useLocation();
+  const { isAdmin } = useCurrentUser();
 
+  // the API only returns tables this user may access
   const { data: tables = [], isLoading } = useTables();
 
   const isSettingsActive = location.pathname.startsWith("/settings");
@@ -34,13 +37,15 @@ export default function Sidebar() {
         }}
         h="100vh"
       >
-        {/* SETTINGS */}
-        <Button
-          variant={isSettingsActive ? "filled" : "subtle"}
-          onClick={() => navigate("/settings")}
-        >
-          Settings
-        </Button>
+        {/* SETTINGS (admins only) */}
+        {isAdmin && (
+          <Button
+            variant={isSettingsActive ? "filled" : "subtle"}
+            onClick={() => navigate("/settings")}
+          >
+            Settings
+          </Button>
+        )}
 
         {/* DYNAMIC TABLES */}
         {visibleTables.map((t: any) => {
@@ -57,6 +62,12 @@ export default function Sidebar() {
             </Button>
           );
         })}
+
+        {!isAdmin && !visibleTables.length && (
+          <Text size="sm" c="dimmed" ta="center" mt="md">
+            No tables available
+          </Text>
+        )}
       </Stack>
     </ScrollArea>
   );

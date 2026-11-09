@@ -26,8 +26,9 @@ type Props = {
   setGlobalFilter: (v: string) => void;
 
   onView: (id: string) => void;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  // omitted when the user isn't allowed to edit / delete
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
   
 };
 
@@ -147,33 +148,37 @@ export default function CustomTable({
             </ActionIcon>
           </Tooltip>
 
-          <Tooltip label="Edit">
-            <ActionIcon
-              size="sm"
-              color="yellow"
-              radius="sm"
-              variant="subtle"
-              onClick={() => onEdit(row.original._id)}
-            >
-              <IconEdit size={16} />
-            </ActionIcon>
-          </Tooltip>
+          {onEdit && (
+            <Tooltip label="Edit">
+              <ActionIcon
+                size="sm"
+                color="yellow"
+                radius="sm"
+                variant="subtle"
+                onClick={() => onEdit(row.original._id)}
+              >
+                <IconEdit size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
 
-          <Tooltip label="Delete">
-            <ActionIcon
-              size="sm"
-              color="red"
-              radius="sm"
-              variant="subtle"
-              onClick={() =>
-                confirmAction("Are you sure you want to delete this row?", () =>
-                  onDelete(row.original._id),
-                )
-              }
-            >
-              <IconTrash size={16} />
-            </ActionIcon>
-          </Tooltip>
+          {onDelete && (
+            <Tooltip label="Delete">
+              <ActionIcon
+                size="sm"
+                color="red"
+                radius="sm"
+                variant="subtle"
+                onClick={() =>
+                  confirmAction("Are you sure you want to delete this row?", () =>
+                    onDelete(row.original._id),
+                  )
+                }
+              >
+                <IconTrash size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
         </Group>
       )}
     />

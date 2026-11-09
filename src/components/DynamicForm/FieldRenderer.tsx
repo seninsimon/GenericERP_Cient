@@ -31,6 +31,7 @@ export default function FieldRenderer({ column, ...props }: any) {
       return <FileField column={column} {...props} />;
 
     case "richtext":
+    case "richText": // older spelling
       return <RichTextField column={column} {...props} />;
 
     case "textarea":

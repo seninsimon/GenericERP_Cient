@@ -11,6 +11,7 @@ import {
   ActionIcon,
   Grid,
   Box,
+  Select,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
@@ -23,7 +24,8 @@ import {
   useUpdateData,
 } from "../../api/reactQueryHooks/useTables";
 
-import { getRelationOptions, uploadFiles } from "../../api/api";
+import { errorMessage, getRelationOptions, uploadFiles } from "../../api/api";
+import { useCurrentUser } from "../../auth/AuthContext";
 import FieldRenderer from "./FieldRenderer";
 import { confirmAction } from "../../utils/confirmModal";
 
@@ -47,6 +49,30 @@ export default function DynamicForm({ table }: any) {
 
   const insertMutation = useInsertData(table);
   const updateMutation = useUpdateData(table);
+
+  const { isAdmin } = useCurrentUser();
+  const permissions = schema?.permissions ?? {};
+  const canSave = isEdit ? permissions.edit : !isView && permissions.create;
+
+  /* ---------------- DEPARTMENT ---------------- */
+  // departments this user may file the record under (from the API)
+  const departmentOptions = (schema?.allowedDepartments ?? []).map((d: any) => ({
+    value: d._id,
+    label: d.name,
+  }));
+  // users with a single department don't need to pick; admins always see it
+  const showDepartment =
+    departmentOptions.length > 1 || (isAdmin && departmentOptions.length > 0);
+
+  // new record + exactly one department: preselect it
+  useEffect(() => {
+    if (!isEdit && !isView && departmentOptions.length === 1) {
+      setForm((prev: any) =>
+        prev._departmentId ? prev : { ...prev, _departmentId: departmentOptions[0].value }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema, isEdit, isView]);
 
   /* ---------------- INIT DATA ---------------- */
   useEffect(() => {
@@ -93,8 +119,13 @@ export default function DynamicForm({ table }: any) {
 
       for (const col of schema.columns) {
         if (col.type === "relation" && col.ref) {
-          const res = await getRelationOptions(col.ref, col.displayField);
-          rels[col.name] = res.data ?? [];
+          try {
+            const res = await getRelationOptions(col.ref, col.displayField);
+            rels[col.name] = res.data ?? [];
+          } catch {
+            // no access to the linked table
+            rels[col.name] = [];
+          }
         }
       }
 
@@ -134,6 +165,16 @@ export default function DynamicForm({ table }: any) {
 
   /* ---------------- SUBMIT ---------------- */
   const submit = async () => {
+    if (showDepartment && !isAdmin && !form._departmentId) {
+      notifications.show({
+        title: "Department required",
+        message: "Choose which department this record belongs to",
+        color: "red",
+      });
+      return;
+    }
+
+    let stage = "upload";
     try {
       let payload = { ...form };
 
@@ -156,6 +197,7 @@ export default function DynamicForm({ table }: any) {
         }
       }
 
+      stage = "save";
       if (isEdit) {
         await updateMutation.mutateAsync({ id: id!, data: payload });
       } else {
@@ -169,12 +211,15 @@ export default function DynamicForm({ table }: any) {
       });
 
       navigate(`/table/${table}`);
-    } catch {
-      notifications.show({
-        title: "Error",
-        message: "Something went wrong",
-        color: "red",
-      });
+    } catch (err) {
+      // save errors are already shown by the mutation hooks
+      if (stage === "upload") {
+        notifications.show({
+          title: "Upload failed",
+          message: errorMessage(err),
+          color: "red",
+        });
+      }
     }
   };
 
@@ -217,6 +262,20 @@ export default function DynamicForm({ table }: any) {
       <Stack w="100%" pt="md" gap="md">
         <Paper withBorder radius="md" p="md">
           <Grid gutter="md">
+            {showDepartment && (
+              <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+                <Select
+                  label="Department"
+                  placeholder={isAdmin ? "Unassigned (admins only)" : "Choose a department"}
+                  data={departmentOptions}
+                  value={form._departmentId ?? null}
+                  onChange={(v) => handleChange("_departmentId", v)}
+                  disabled={isView}
+                  clearable={isAdmin}
+                  required={!isAdmin}
+                />
+              </Grid.Col>
+            )}
             {schema.columns.map((col: any) => (
               <Grid.Col
                 key={col.name}
@@ -276,7 +335,7 @@ export default function DynamicForm({ table }: any) {
             Cancel
           </Button>
 
-          {!isView && (
+          {canSave && (
             <Button
               loading={
                 insertMutation.isPending || updateMutation.isPending

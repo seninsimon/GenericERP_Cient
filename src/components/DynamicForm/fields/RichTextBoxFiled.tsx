@@ -13,29 +13,17 @@ export default function RichTextField({ column, value, isView, onChange }: any) 
     },
   });
 
+  // load the record's content once it arrives (edit/view pages fetch it async)
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
-      editor.commands.setContent(value || "");
+      editor.commands.setContent(value || "", { emitUpdate: false });
     }
   }, [value, editor]);
 
-  // VIEW MODE
-  if (isView) {
-    return (
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[#1F2937]">
-          {column.label}
-        </label>
+  useEffect(() => {
+    editor?.setEditable(!isView);
+  }, [editor, isView]);
 
-        <div
-          className="border border-gray-300 rounded-lg p-3 bg-[#F9FAFB]"
-          dangerouslySetInnerHTML={{ __html: value || "-" }}
-        />
-      </div>
-    );
-  }
-
-  // EDIT MODE
   if (!editor) return null;
 
   return (
@@ -44,20 +32,27 @@ export default function RichTextField({ column, value, isView, onChange }: any) 
         {column.label}
       </label>
 
+      {/* View mode also goes through the editor (read-only): it only renders
+          formatting it knows, so stored HTML can't inject scripts. */}
       <RichTextEditor editor={editor}>
-        <RichTextEditor.Toolbar>
-          <RichTextEditor.Bold />
-          <RichTextEditor.Italic />
-          <RichTextEditor.Underline />
-          <RichTextEditor.Strikethrough />
-          <RichTextEditor.H1 />
-          <RichTextEditor.H2 />
-          <RichTextEditor.BulletList />
-          <RichTextEditor.OrderedList />
-          <RichTextEditor.Link />
-        </RichTextEditor.Toolbar>
+        {!isView && (
+          <RichTextEditor.Toolbar>
+            <RichTextEditor.Bold />
+            <RichTextEditor.Italic />
+            <RichTextEditor.Underline />
+            <RichTextEditor.Strikethrough />
+            <RichTextEditor.H1 />
+            <RichTextEditor.H2 />
+            <RichTextEditor.BulletList />
+            <RichTextEditor.OrderedList />
+            <RichTextEditor.Link />
+          </RichTextEditor.Toolbar>
+        )}
 
-        <RichTextEditor.Content style={{ minHeight: 150 }} />
+        <RichTextEditor.Content
+          style={{ minHeight: isView ? undefined : 150 }}
+          bg={isView ? "#F9FAFB" : undefined}
+        />
       </RichTextEditor>
     </div>
   );

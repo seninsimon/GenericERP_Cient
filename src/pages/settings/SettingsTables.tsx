@@ -12,6 +12,9 @@ import {
   Tabs,
   Grid,
   Switch,
+  MultiSelect,
+  Stack,
+  Text,
 } from "@mantine/core";
 import {
   IconTable,
@@ -32,7 +35,12 @@ import {
   useUpdateTableSettings, // ✅ NEW
 } from "../../api/reactQueryHooks/useTables";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { notifications } from "@mantine/notifications";
+import { useDepartments } from "../../api/reactQueryHooks/useAdmin";
+import { assignUnassignedRecords, errorMessage } from "../../api/api";
 import AddColumnForm from "./AddColumnForm";
+import DeleteTableButton from "./DeleteTableButton";
 import SchemaColumnsTable from "./SchemaColumnsTable";
 
 export default function SettingsTables() {
@@ -43,6 +51,8 @@ export default function SettingsTables() {
   const [tableName, setTableName] = useState("");
 
   const [showInMenu, setShowInMenu] = useState(true);
+  const [tableDepartments, setTableDepartments] = useState<string[]>([]);
+  const { data: departments = [] } = useDepartments();
 
   const [columnName, setColumnName] = useState("");
   const [columnLabel, setColumnLabel] = useState("");
@@ -63,6 +73,27 @@ export default function SettingsTables() {
   const { mutateAsync: updateTableSettingsMutate, isPending: updatingMenu } =
     useUpdateTableSettings();
 
+  /* records with no department (e.g. created before departments existed) */
+  const qc = useQueryClient();
+  const [assignTo, setAssignTo] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState(false);
+
+  const assignUnassigned = async () => {
+    if (!assignTo) return;
+    setAssigning(true);
+    try {
+      const { data } = await assignUnassignedRecords(selectedTable, assignTo);
+      notifications.show({ title: "Records assigned", message: data.message, color: "green" });
+      setAssignTo(null);
+      qc.invalidateQueries({ queryKey: ["schema", selectedTable] });
+      qc.invalidateQueries({ queryKey: ["tableData", selectedTable] });
+    } catch (err) {
+      notifications.show({ title: "Couldn't assign records", message: errorMessage(err), color: "red" });
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   useEffect(() => {
     if (schema?.columns) {
       setColumnsData(schema.columns);
@@ -70,6 +101,7 @@ export default function SettingsTables() {
 
     if (schema) {
       setShowInMenu(schema.showInMenu ?? true);
+      setTableDepartments((schema.departments ?? []).map((d: any) => d._id));
     }
   }, [schema]);
 
@@ -119,7 +151,7 @@ export default function SettingsTables() {
   const updateTableMenu = async () => {
     await updateTableSettingsMutate({
       table: selectedTable,
-      data: { showInMenu },
+      data: { showInMenu, departmentIds: tableDepartments },
     });
     
   };
@@ -133,8 +165,7 @@ export default function SettingsTables() {
   }
 
   return (
-    <div className="w-full px-6 py-6 max-w-7xl mx-auto">
-      <Title order={2} mb="md">Settings</Title>
+    <div className="w-full">
 
       <Tabs value={activeTab} onChange={setActiveTab} mb="xl">
         <Tabs.List>
@@ -207,16 +238,75 @@ export default function SettingsTables() {
 
         {selectedTable && (
           <Card withBorder p="sm" mb="md">
-            <Group justify="space-between">
+            <Stack gap="sm">
               <Switch
                 label="Show this table in sidebar menu"
                 checked={showInMenu}
                 onChange={(e) => setShowInMenu(e.currentTarget.checked)}
               />
-              <Button size="xs" onClick={updateTableMenu} loading={updatingMenu}>
-                Save
-              </Button>
-            </Group>
+              <MultiSelect
+                label="Departments"
+                description="Only users in these departments can see this table, and only records of their own departments. With no department, only admins can use it."
+                placeholder={tableDepartments.length ? undefined : "Admins only"}
+                data={departments.map((d: any) => ({ value: d._id, label: d.name }))}
+                value={tableDepartments}
+                onChange={setTableDepartments}
+                searchable
+                clearable
+              />
+              {!departments.length && (
+                <Text size="xs" c="dimmed">
+                  Create departments in the Departments tab first.
+                </Text>
+              )}
+              <Group justify="space-between">
+                <DeleteTableButton
+                  table={selectedTable}
+                  onDeleted={() => {
+                    setSelectedTable("");
+                    setActiveTab("create");
+                  }}
+                />
+                <Button size="xs" onClick={updateTableMenu} loading={updatingMenu}>
+                  Save
+                </Button>
+              </Group>
+
+              {schema?.unassignedCount > 0 && (
+                <Alert color="yellow" icon={<IconInfoCircle size={16} />} title={`${schema.unassignedCount} record(s) have no department`}>
+                  <Text size="sm" mb="xs">
+                    Only admins can see these. Move them all into one of this table's departments:
+                  </Text>
+                  {schema.departments?.length ? (
+                    <Group align="flex-end">
+                      <Select
+                        placeholder="Choose department"
+                        data={schema.departments.map((d: any) => ({ value: d._id, label: d.name }))}
+                        value={assignTo}
+                        onChange={setAssignTo}
+                        size="xs"
+                      />
+                      <Button
+                        size="xs"
+                        color="yellow"
+                        disabled={!assignTo}
+                        loading={assigning}
+                        onClick={() =>
+                          confirmAction(
+                            `Assign all ${schema.unassignedCount} unassigned record(s) to this department?`,
+                            assignUnassigned
+                          )
+                        }
+                      >
+                        Assign
+                      </Button>
+                    </Group>
+                  ) : (
+                    <Text size="xs" c="dimmed">Save at least one department for this table first.</Text>
+                  )}
+                </Alert>
+              )}
+            </Stack>
           </Card>
         )}
 
