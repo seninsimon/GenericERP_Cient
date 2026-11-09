@@ -23,8 +23,7 @@ import {
   useUpdateData,
 } from "../../api/reactQueryHooks/useTables";
 
-import { uploadFiles } from "../../api/api";
-import api from "../../api/api";
+import { getRelationOptions, uploadFiles } from "../../api/api";
 import FieldRenderer from "./FieldRenderer";
 import { confirmAction } from "../../utils/confirmModal";
 
@@ -94,14 +93,8 @@ export default function DynamicForm({ table }: any) {
 
       for (const col of schema.columns) {
         if (col.type === "relation" && col.ref) {
-          const res = await api.get(`/table/${col.ref}`, {
-            params: { page: 1, limit: 1000 },
-          });
-
-          rels[col.name] = res.data?.data.map((item: any) => ({
-            value: String(item._id),
-            label: item.name || item.title || item._id,
-          }));
+          const res = await getRelationOptions(col.ref, col.displayField);
+          rels[col.name] = res.data ?? [];
         }
       }
 

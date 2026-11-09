@@ -46,6 +46,12 @@ export const insertData = (table: string, data: any) =>
   api.post(`/table/${table}`, data);
 
 
+// [{ value: id, label: display name }] for relation dropdowns
+export const getRelationOptions = (table: string, displayField?: string) =>
+  api.get<{ value: string; label: string }[]>(`/table/${table}/options`, {
+    params: displayField ? { displayField } : {},
+  });
+
 export const getSingleData = (table: string, id: string) =>
   api.get(`/table/${table}/${id}`);
 
