@@ -15,7 +15,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { IconArrowLeft, IconDeviceFloppy } from "@tabler/icons-react";
+import { IconArrowLeft, IconDeviceFloppy, IconHistory } from "@tabler/icons-react";
 
 import {
   useSchema,
@@ -24,12 +24,28 @@ import {
   useUpdateData,
 } from "../../api/reactQueryHooks/useTables";
 
-import { errorMessage, getRelationOptions, uploadFiles } from "../../api/api";
+import { errorMessage, uploadFiles } from "../../api/api";
 import { useCurrentUser } from "../../auth/AuthContext";
 import FieldRenderer from "./FieldRenderer";
+import RecordHistory from "./RecordHistory";
 import { confirmAction } from "../../utils/confirmModal";
 
 const FILE_BASE_URL = import.meta.env.VITE_FILE_BASE_URL;
+
+const FILE_TYPES = ["image", "images", "file", "files"];
+
+// Same rule as the API: null, "" and [] are missing; false is a value.
+const isMissing = (col: any, value: any) => {
+  if (value === null || value === undefined) return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "string") {
+    if (col.type === "richtext" || col.type === "richText") {
+      return value.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim() === "";
+    }
+    return value.trim() === "";
+  }
+  return false;
+};
 
 export default function DynamicForm({ table }: any) {
   const { id } = useParams();
@@ -40,7 +56,9 @@ export default function DynamicForm({ table }: any) {
   const isView = location.pathname.includes("/view/");
 
   const [form, setForm] = useState<any>({});
-  const [relations, setRelations] = useState<any>({});
+  // per-field validation messages (client-side or from the API's 400 `errors`)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<any>({});
   const [existingFiles, setExistingFiles] = useState<any>({});
 
@@ -110,38 +128,23 @@ export default function DynamicForm({ table }: any) {
     setExistingFiles(existing);
   }, [singleData, schema]);
 
-  /* ---------------- RELATIONS ---------------- */
-  useEffect(() => {
-    if (!schema) return;
-
-    const loadRelations = async () => {
-      const rels: any = {};
-
-      for (const col of schema.columns) {
-        if (col.type === "relation" && col.ref) {
-          try {
-            const res = await getRelationOptions(col.ref, col.displayField);
-            rels[col.name] = res.data ?? [];
-          } catch {
-            // no access to the linked table
-            rels[col.name] = [];
-          }
-        }
-      }
-
-      setRelations(rels);
-    };
-
-    loadRelations();
-  }, [schema]);
-
   /* ---------------- HANDLERS ---------------- */
+  const clearFieldError = (name: string) =>
+    setFieldErrors((prev) => {
+      if (!(name in prev)) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+
   const handleChange = (name: string, value: any) => {
     setForm((prev: any) => ({ ...prev, [name]: value }));
+    clearFieldError(name);
   };
 
   const handleFileSelect = (name: string, files: File[] | File) => {
     const arr = Array.isArray(files) ? files : [files];
+    clearFieldError(name);
 
     setPendingFiles((prev: any) => ({
       ...prev,
@@ -164,19 +167,49 @@ export default function DynamicForm({ table }: any) {
   };
 
   /* ---------------- SUBMIT ---------------- */
-  const submit = async () => {
+  // value of a column as it will be submitted (files: kept + newly picked)
+  const effectiveValue = (col: any) => {
+    if (FILE_TYPES.includes(col.type)) {
+      const files = [...(existingFiles[col.name] || []), ...(pendingFiles[col.name] || [])];
+      return files.length ? files : null;
+    }
+    return form[col.name];
+  };
+
+  const validateRequired = () => {
+    const errors: Record<string, string> = {};
+    for (const col of schema.columns) {
+      if (col.required && isMissing(col, effectiveValue(col))) {
+        errors[col.name] = `${col.label || col.name} is required`;
+      }
+    }
     if (showDepartment && !isAdmin && !form._departmentId) {
+      errors._departmentId = "Choose which department this record belongs to";
+    }
+    return errors;
+  };
+
+  // check required fields first, so the confirmation only shows for a valid form
+  const requestSave = () => {
+    const missing = validateRequired();
+    if (Object.keys(missing).length) {
+      setFieldErrors(missing);
       notifications.show({
-        title: "Department required",
-        message: "Choose which department this record belongs to",
+        title: "Missing required fields",
+        message: "Fill in the highlighted fields",
         color: "red",
       });
       return;
     }
+    setFieldErrors({});
+    confirmAction("Save changes?", submit);
+  };
+
+  const submit = async () => {
 
     let stage = "upload";
     try {
-      let payload = { ...form };
+      const payload = { ...form };
 
       for (const col of schema.columns) {
         if (["image", "images", "file", "files"].includes(col.type)) {
@@ -211,7 +244,12 @@ export default function DynamicForm({ table }: any) {
       });
 
       navigate(`/table/${table}`);
-    } catch (err) {
+    } catch (err: any) {
+      // per-field messages from the API (the hooks already show the general message)
+      const serverErrors = err?.response?.data?.errors;
+      if (serverErrors && typeof serverErrors === "object") {
+        setFieldErrors(serverErrors);
+      }
       // save errors are already shown by the mutation hooks
       if (stage === "upload") {
         notifications.show({
@@ -247,7 +285,7 @@ export default function DynamicForm({ table }: any) {
             <IconArrowLeft size={16} />
           </ActionIcon>
 
-          <Box>
+          <Box style={{ flex: 1 }}>
             <Title order={4}>
               {isEdit ? "Edit" : isView ? "View" : "New"} {table}
             </Title>
@@ -255,8 +293,29 @@ export default function DynamicForm({ table }: any) {
               Manage record details
             </Text>
           </Box>
+
+          {(isEdit || isView) && id && (
+            <Button
+              variant="light"
+              size="xs"
+              leftSection={<IconHistory size={14} />}
+              onClick={() => setHistoryOpen(true)}
+            >
+              History
+            </Button>
+          )}
         </Group>
       </Paper>
+
+      {(isEdit || isView) && id && (
+        <RecordHistory
+          opened={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          table={table}
+          recordId={id}
+          columns={schema.columns}
+        />
+      )}
 
       {/* FORM */}
       <Stack w="100%" pt="md" gap="md">
@@ -273,6 +332,7 @@ export default function DynamicForm({ table }: any) {
                   disabled={isView}
                   clearable={isAdmin}
                   required={!isAdmin}
+                  error={fieldErrors._departmentId}
                 />
               </Grid.Col>
             )}
@@ -301,7 +361,7 @@ export default function DynamicForm({ table }: any) {
                         : null
                       : "")
                   }
-                  relations={relations}
+                  error={fieldErrors[col.name]}
                   isView={isView}
                   FILE_BASE_URL={FILE_BASE_URL}
                   onChange={handleChange}
@@ -340,7 +400,7 @@ export default function DynamicForm({ table }: any) {
               loading={
                 insertMutation.isPending || updateMutation.isPending
               }
-              onClick={() => confirmAction("Save changes?", submit)}
+              onClick={requestSave}
               leftSection={<IconDeviceFloppy size={14} />}
             >
               {isEdit ? "Update" : "Save"}

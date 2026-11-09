@@ -10,6 +10,7 @@ export default function FileField({
   onFileSelect,
   removeExisting,
   removePending,
+  error,
 }: any) {
 
   const existing = existingFiles[column.name] || [];
@@ -43,6 +44,8 @@ export default function FileField({
       {!isView && (
         <FileInput
           label={column.label}
+          withAsterisk={Boolean(column.required)}
+          error={error}
         //   description={isMultiple ? `Upload ${column.type === 'images' ? 'images' : 'files'}` : undefined}
           placeholder={`Click to upload ${isMultiple ? 'multiple files' : 'a file'}`}
           multiple={isMultiple}

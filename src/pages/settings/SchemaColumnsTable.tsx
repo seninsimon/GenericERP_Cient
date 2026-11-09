@@ -10,6 +10,7 @@ import {
   Text,
   ActionIcon,
   Tooltip,
+  Stack,
 } from "@mantine/core";
 import {
   IconEdit,
@@ -18,7 +19,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { confirmAction } from "../../utils/confirmModal";
-import { columnTypes } from "./columnTypes";
+import { columnTypes, INDEXABLE_TYPES, INDEXED_HELP } from "./columnTypes";
 
 interface SchemaColumnsTableProps {
   columnsData: any[];
@@ -118,6 +119,9 @@ export default function SchemaColumnsTable({
                 value={col.type}
                 onChange={(v) => {
                   updateLocalColumn(col.name, "type", v);
+                  if (!INDEXABLE_TYPES.includes(v || "")) {
+                    updateLocalColumn(col.name, "indexed", false);
+                  }
                   if (v !== "relation") {
                     updateLocalColumn(col.name, "ref", null);
                     updateLocalColumn(col.name, "multiple", false);
@@ -223,6 +227,59 @@ export default function SchemaColumnsTable({
         },
       },
       {
+        id: "options",
+        header: "Options",
+        size: 170,
+        Cell: ({ row }) => {
+          const col = row.original;
+          const indexable = INDEXABLE_TYPES.includes(col.type);
+          if (editing === col.name) {
+            return (
+              <Stack gap={4}>
+                <Switch
+                  size="xs"
+                  label="Required"
+                  checked={Boolean(col.required)}
+                  onChange={(e) =>
+                    updateLocalColumn(col.name, "required", e.currentTarget.checked)
+                  }
+                />
+                <Tooltip label={INDEXED_HELP} multiline w={260} withArrow>
+                  <div>
+                    <Switch
+                      size="xs"
+                      label="Indexed"
+                      disabled={!indexable}
+                      checked={Boolean(col.indexed) && indexable}
+                      onChange={(e) =>
+                        updateLocalColumn(col.name, "indexed", e.currentTarget.checked)
+                      }
+                    />
+                  </div>
+                </Tooltip>
+              </Stack>
+            );
+          }
+          if (!col.required && !col.indexed) {
+            return <Text c="dimmed" size="xs">-</Text>;
+          }
+          return (
+            <Group gap={4}>
+              {col.required && (
+                <Badge color="red" variant="light" size="xs">
+                  Required
+                </Badge>
+              )}
+              {col.indexed && (
+                <Badge color="violet" variant="light" size="xs">
+                  Indexed
+                </Badge>
+              )}
+            </Group>
+          );
+        },
+      },
+      {
         id: "actions",
         header: "Actions",
         size: 120,
@@ -284,7 +341,7 @@ export default function SchemaColumnsTable({
         },
       },
     ],
-    [editing, tables, onSaveColumn, onDeleteColumn, updateLocalColumn]
+    [editing, setEditing, tables, onSaveColumn, onDeleteColumn, updateLocalColumn]
   );
 
   return <AppTable columns={columns} data={columnsData} />;

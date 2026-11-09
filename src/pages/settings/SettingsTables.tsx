@@ -40,6 +40,7 @@ import { notifications } from "@mantine/notifications";
 import { useDepartments } from "../../api/reactQueryHooks/useAdmin";
 import { assignUnassignedRecords, errorMessage } from "../../api/api";
 import AddColumnForm from "./AddColumnForm";
+import { INDEXABLE_TYPES } from "./columnTypes";
 import DeleteTableButton from "./DeleteTableButton";
 import SchemaColumnsTable from "./SchemaColumnsTable";
 
@@ -60,6 +61,8 @@ export default function SettingsTables() {
   const [showInTable, setShowInTable] = useState(true);
   const [refTable, setRefTable] = useState("");
   const [multiple, setMultiple] = useState(false);
+  const [required, setRequired] = useState(false);
+  const [indexed, setIndexed] = useState(false);
 
   const { data: tables = [], isLoading: tablesLoading } = useTables();
   const { data: schema, isLoading: schemaLoading } = useSchema(selectedTable);
@@ -123,6 +126,8 @@ export default function SettingsTables() {
       showInTable,
       ref: columnType === "relation" ? refTable : null,
       multiple: columnType === "relation" ? multiple : false,
+      required,
+      indexed: INDEXABLE_TYPES.includes(columnType) ? indexed : false,
     });
 
     setColumnName("");
@@ -131,6 +136,8 @@ export default function SettingsTables() {
     setShowInTable(true);
     setRefTable("");
     setMultiple(false);
+    setRequired(false);
+    setIndexed(false);
   };
 
   const removeColumn = async (name: string) => {
@@ -138,7 +145,14 @@ export default function SettingsTables() {
   };
 
   const saveColumn = async (col: any) => {
-    await updateColumnMutate(col);
+    // the API accepts these fields on a column update
+    await updateColumnMutate({
+      label: col.label,
+      type: col.type,
+      showInTable: col.showInTable,
+      required: Boolean(col.required),
+      indexed: INDEXABLE_TYPES.includes(col.type) ? Boolean(col.indexed) : false,
+    });
     setEditing(null);
   };
 
@@ -336,6 +350,10 @@ export default function SettingsTables() {
                   setRefTable={setRefTable}
                   multiple={multiple}
                   setMultiple={setMultiple}
+                  required={required}
+                  setRequired={setRequired}
+                  indexed={indexed}
+                  setIndexed={setIndexed}
                   tables={tables}
                   selectedTable={selectedTable}
                   onAddColumn={addNewColumn}

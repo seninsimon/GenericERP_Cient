@@ -2,8 +2,9 @@ import { RichTextEditor } from "@mantine/tiptap";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect } from "react";
+import { Text } from "@mantine/core";
 
-export default function RichTextField({ column, value, isView, onChange }: any) {
+export default function RichTextField({ column, value, isView, onChange, error }: any) {
   const editor = useEditor({
     extensions: [StarterKit],
     content: value || "",
@@ -30,6 +31,7 @@ export default function RichTextField({ column, value, isView, onChange }: any) 
     <div className="space-y-2">
       <label className="text-sm font-medium text-[#1F2937]">
         {column.label}
+        {column.required && !isView && <span style={{ color: "var(--mantine-color-red-6)" }}> *</span>}
       </label>
 
       {/* View mode also goes through the editor (read-only): it only renders
@@ -54,6 +56,11 @@ export default function RichTextField({ column, value, isView, onChange }: any) 
           bg={isView ? "#F9FAFB" : undefined}
         />
       </RichTextEditor>
+      {error && (
+        <Text size="xs" c="red">
+          {error}
+        </Text>
+      )}
     </div>
   );
 }

@@ -10,3 +10,9 @@ export const columnTypes = [
   { value: "richtext", label: "Rich Text", group: "Advanced Types" },
   { value: "textarea", label: "Text Area", group: "Advanced Types" },
 ];
+
+// column types that can get a database index for fast sorting ("Indexed")
+export const INDEXABLE_TYPES = ["text", "textarea", "number", "date", "boolean"];
+
+export const INDEXED_HELP =
+  "Adds a database index so sorting by this column stays fast on large tables. Available for text, text area, number, date and boolean columns.";

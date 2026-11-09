@@ -22,6 +22,7 @@ import {
   IconUser,
   IconLogout,
   IconChevronDown,
+  IconTransferIn,
 } from "@tabler/icons-react";
 import { useCurrentUser } from "../auth/AuthContext";
 import { useState } from "react";
@@ -198,6 +199,12 @@ export default function TopNavbar({
                 onClick={() => navigate("/profile")}
               >
                 My profile
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconTransferIn size={16} />}
+                onClick={() => navigate("/jobs")}
+              >
+                Imports &amp; exports
               </Menu.Item>
               {isAdmin && (
                 <Menu.Item

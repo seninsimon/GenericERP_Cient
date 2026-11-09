@@ -1,6 +1,7 @@
 import { Box, Tabs, Title } from "@mantine/core";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
+  IconHistory,
   IconBuilding,
   IconShieldLock,
   IconTable,
@@ -14,6 +15,7 @@ const TABS = [
   { value: "users", label: "Users", icon: IconUsers },
   { value: "roles", label: "Roles & permissions", icon: IconShieldLock },
   { value: "departments", label: "Departments", icon: IconBuilding },
+  { value: "audit", label: "Audit log", icon: IconHistory },
 ];
 
 // Settings area: admins only.

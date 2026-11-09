@@ -1,7 +1,7 @@
-import { Button, TextInput, Select, Checkbox, Group, Grid, Paper, Tooltip } from "@mantine/core";
+import { Button, TextInput, Select, Checkbox, Group, Grid, Paper, Tooltip, Stack } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { confirmAction } from "../../utils/confirmModal";
-import { columnTypes } from "./columnTypes";
+import { columnTypes, INDEXABLE_TYPES, INDEXED_HELP } from "./columnTypes";
 
 interface AddColumnFormProps {
   columnName: string;
@@ -16,6 +16,10 @@ interface AddColumnFormProps {
   setRefTable: (value: string) => void;
   multiple: boolean;
   setMultiple: (value: boolean) => void;
+  required: boolean;
+  setRequired: (value: boolean) => void;
+  indexed: boolean;
+  setIndexed: (value: boolean) => void;
   tables: any[];
   selectedTable: string;
   onAddColumn: () => Promise<void>;
@@ -43,6 +47,10 @@ export default function AddColumnForm({
   setRefTable,
   multiple,
   setMultiple,
+  required,
+  setRequired,
+  indexed,
+  setIndexed,
   tables,
   selectedTable,
   onAddColumn,
@@ -88,6 +96,7 @@ export default function AddColumnForm({
             onChange={(v) => {
               const type = v || "text";
               setColumnType(type);
+              if (!INDEXABLE_TYPES.includes(type)) setIndexed(false);
               if (type !== "relation") {
                 setRefTable("");
                 setMultiple(false);
@@ -98,7 +107,7 @@ export default function AddColumnForm({
         </Grid.Col>
 
         <Grid.Col span={3}>
-          <div className="flex items-end h-full">
+          <Stack gap={6} justify="flex-end" h="100%">
             <Tooltip label="Show this column in table views">
               <Checkbox
                 label="Show in table"
@@ -107,7 +116,26 @@ export default function AddColumnForm({
                 size="xs"
               />
             </Tooltip>
-          </div>
+            <Tooltip label="Records can't be saved without a value">
+              <Checkbox
+                label="Required"
+                checked={required}
+                onChange={(e) => setRequired(e.currentTarget.checked)}
+                size="xs"
+              />
+            </Tooltip>
+            <Tooltip label={INDEXED_HELP} multiline w={260} withArrow>
+              <div>
+                <Checkbox
+                  label="Indexed (fast sort)"
+                  checked={indexed && INDEXABLE_TYPES.includes(columnType)}
+                  disabled={!INDEXABLE_TYPES.includes(columnType)}
+                  onChange={(e) => setIndexed(e.currentTarget.checked)}
+                  size="xs"
+                />
+              </div>
+            </Tooltip>
+          </Stack>
         </Grid.Col>
       </Grid>
 

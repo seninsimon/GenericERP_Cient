@@ -1,12 +1,15 @@
 import { NumberInput } from "@mantine/core";
 
-export default function NumberField({ column, value, isView, onChange }: any) {
+export default function NumberField({ column, value, isView, onChange, error }: any) {
   return (
     <NumberInput
       label={column.label}
-      value={value}
+      value={value ?? ""}
       disabled={isView}
-      onChange={(v) => onChange(column.name, v)}
+      withAsterisk={Boolean(column.required)}
+      error={error}
+      // empty input clears the value instead of sending ""
+      onChange={(v) => onChange(column.name, v === "" ? null : v)}
     />
   );
 }

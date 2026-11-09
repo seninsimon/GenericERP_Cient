@@ -23,7 +23,7 @@ export default function ServerLoader({ children }: any) {
         await getHealth(); // your backend ping
         setProgress(100);
         setTimeout(() => setLoading(false), 500);
-      } catch (err) {
+      } catch {
         console.log("Waiting for backend...");
       } finally {
         clearInterval(interval);
