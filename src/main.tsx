@@ -1,41 +1,41 @@
 import { createRoot } from "react-dom/client";
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
 
+import "@fontsource-variable/inter";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
-import "mantine-react-table/styles.css";
 import "@mantine/dates/styles.css";
-import "@mantine/core/styles.css";
 import "@mantine/tiptap/styles.css";
-import "./index.css";
+import "@mantine/spotlight/styles.css";
+import "./theme/global.css";
 
 import App from "./App.tsx";
-import { themes } from "./theme/themes.ts";
+import { PreferencesProvider } from "./lib/preferences.tsx";
+import { buildTheme, cssVariablesResolver } from "./theme/theme.ts";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+      staleTime: 15_000,
     },
   },
 });
 
-function Root() {
-  const [themeName, setThemeName] = useState("blue");
-
-  return (
-    <MantineProvider
-      defaultColorScheme="light"
-      theme={themes[themeName as keyof typeof themes]}
-    >
-      <QueryClientProvider client={queryClient}>
-        <App themeName={themeName} setThemeName={setThemeName} />
-      </QueryClientProvider>
-    </MantineProvider>
-  );
-}
-
-createRoot(document.getElementById("root")!).render(<Root />);
+createRoot(document.getElementById("root")!).render(
+  <PreferencesProvider>
+    {(prefs) => (
+      <MantineProvider
+        theme={buildTheme(prefs.accent)}
+        cssVariablesResolver={cssVariablesResolver}
+        defaultColorScheme="auto"
+      >
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
+      </MantineProvider>
+    )}
+  </PreferencesProvider>
+);

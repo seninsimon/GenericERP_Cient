@@ -2,6 +2,7 @@ import { Badge, Code, Group, Stack, Text } from "@mantine/core";
 import dayjs from "dayjs";
 
 import type { AuditEntry } from "../api/api";
+import { fileNameFromUrl, formatDate, formatDateTime } from "../lib/format";
 
 const MAX_VALUE_LENGTH = 120;
 
@@ -26,6 +27,10 @@ export const formatValue = (value: any): string => {
     return JSON.stringify(value);
   }
   let text = String(value);
+  // uploaded files: show the file name, not the storage path
+  if (text.startsWith("/uploads/")) return fileNameFromUrl(text);
+  // dates (YYYY-MM-DD…) in the house format
+  if (/^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/.test(text)) return text.length > 10 ? formatDateTime(text) : formatDate(text);
   if (/<[a-z][\s\S]*>/i.test(text)) text = stripTags(text);
   return text.length > MAX_VALUE_LENGTH ? `${text.slice(0, MAX_VALUE_LENGTH)}…` : text;
 };

@@ -1,23 +1,56 @@
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import {
   Alert,
+  Box,
   Button,
   Center,
-  Paper,
+  Group,
   PasswordInput,
   Stack,
   Text,
   TextInput,
+  ThemeIcon,
   Title,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
-import { IconAlertCircle, IconLock, IconUser } from "@tabler/icons-react";
+import {
+  IconAlertCircle,
+  IconBuilding,
+  IconHistory,
+  IconLock,
+  IconShieldLock,
+  IconTable,
+  IconUser,
+} from "@tabler/icons-react";
 
 import { errorMessage, login } from "../api/api";
+import type { CurrentUser } from "../auth/AuthContext";
 
-export default function LoginPage({ onLoggedIn }: { onLoggedIn: (user: any) => void }) {
+const FEATURES = [
+  { icon: IconTable, text: "Build the tables your team needs, no code required" },
+  { icon: IconShieldLock, text: "Roles and departments decide who sees what" },
+  { icon: IconHistory, text: "Every change is recorded in the audit log" },
+];
+
+function Logo({ size = 36 }: { size?: number }) {
+  return (
+    <Group gap={10} wrap="nowrap">
+      <ThemeIcon size={size} radius="md" variant="filled" aria-hidden>
+        <Text fw={800} fz={size * 0.5} c="white">
+          Z
+        </Text>
+      </ThemeIcon>
+      <Text fw={700} fz="lg" lh={1}>
+        Zenin ERP
+      </Text>
+    </Group>
+  );
+}
+
+export default function LoginPage({ onLoggedIn }: { onLoggedIn: (user: CurrentUser) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
 
   const form = useForm({
     initialValues: { username: "", password: "" },
@@ -34,51 +67,109 @@ export default function LoginPage({ onLoggedIn }: { onLoggedIn: (user: any) => v
       const { data } = await login(username.trim(), password);
       onLoggedIn(data.user);
     } catch (err) {
-      setError(errorMessage(err, "Could not reach the server"));
+      setError(errorMessage(err, "Could not reach the server. Check your connection and try again."));
       form.setFieldValue("password", "");
     } finally {
       setSubmitting(false);
     }
   });
 
+  const checkCaps = (e: KeyboardEvent<HTMLInputElement>) => setCapsLock(e.getModifierState?.("CapsLock") ?? false);
+
   return (
-    <Center mih="100vh" bg="var(--mantine-color-gray-0)" p="md">
-      <Paper withBorder shadow="sm" radius="md" p="xl" w="100%" maw={400}>
-        <form onSubmit={submit}>
-          <Stack>
-            <div>
-              <Title order={3}>ERP - Zenin</Title>
-              <Text size="sm" c="dimmed">
-                Sign in to continue
-              </Text>
-            </div>
-
-            {error && (
-              <Alert color="red" icon={<IconAlertCircle size={16} />}>
-                {error}
-              </Alert>
-            )}
-
-            <TextInput
-              label="Username"
-              leftSection={<IconUser size={16} />}
-              autoComplete="username"
-              autoFocus
-              {...form.getInputProps("username")}
-            />
-            <PasswordInput
-              label="Password"
-              leftSection={<IconLock size={16} />}
-              autoComplete="current-password"
-              {...form.getInputProps("password")}
-            />
-
-            <Button type="submit" loading={submitting} fullWidth mt="sm">
-              Sign in
-            </Button>
+    <Box mih="100dvh" style={{ display: "flex", background: "var(--app-bg)" }}>
+      {/* brand panel (md and up) */}
+      <Box
+        visibleFrom="md"
+        w="44%"
+        maw={620}
+        p={48}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          background:
+            "linear-gradient(160deg, var(--mantine-primary-color-light) 0%, var(--app-surface) 70%)",
+          borderRight: "1px solid var(--app-border)",
+        }}
+      >
+        <Logo />
+        <Stack gap="xl" maw={420}>
+          <Title order={1} fz={30} lh={1.2}>
+            Your company's data, organised and in one place.
+          </Title>
+          <Stack gap="md" component="ul" p={0} m={0} style={{ listStyle: "none" }}>
+            {FEATURES.map(({ icon: Icon, text }) => (
+              <Group key={text} gap="sm" wrap="nowrap" component="li">
+                <ThemeIcon variant="light" size={32} radius="md" aria-hidden>
+                  <Icon size={18} stroke={1.75} />
+                </ThemeIcon>
+                <Text size="sm">{text}</Text>
+              </Group>
+            ))}
           </Stack>
-        </form>
-      </Paper>
-    </Center>
+        </Stack>
+        <Group gap={6}>
+          <IconBuilding size={14} opacity={0.6} />
+          <Text size="xs" c="dimmed">
+            Accounts are created by your administrator.
+          </Text>
+        </Group>
+      </Box>
+
+      {/* sign-in form */}
+      <Center style={{ flex: 1 }} p={{ base: "md", sm: "xl" }}>
+        <Box w="100%" maw={380} component="main">
+          <Box hiddenFrom="md" mb="xl">
+            <Logo />
+          </Box>
+          <Stack gap={4} mb="lg">
+            <Title order={2}>Sign in</Title>
+            <Text size="sm" c="dimmed">
+              Welcome back. Enter your details to continue.
+            </Text>
+          </Stack>
+
+          <form onSubmit={submit} noValidate>
+            <Stack gap="md">
+              {error && (
+                <Alert color="red" icon={<IconAlertCircle size={16} />} role="alert">
+                  {error}
+                </Alert>
+              )}
+              <TextInput
+                label="Username"
+                leftSection={<IconUser size={16} />}
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                autoFocus
+                size="md"
+                {...form.getInputProps("username")}
+              />
+              <PasswordInput
+                label="Password"
+                leftSection={<IconLock size={16} />}
+                autoComplete="current-password"
+                size="md"
+                onKeyUp={checkCaps}
+                onKeyDown={checkCaps}
+                description={capsLock ? "Caps Lock is on" : undefined}
+                inputWrapperOrder={["label", "input", "description", "error"]}
+                styles={{ description: { color: "var(--mantine-color-orange-text)" } }}
+                visibilityToggleButtonProps={{ "aria-label": "Show or hide password" }}
+                {...form.getInputProps("password")}
+              />
+              <Button type="submit" loading={submitting} fullWidth size="md" mt="xs">
+                Sign in
+              </Button>
+            </Stack>
+          </form>
+          <Text size="xs" c="dimmed" ta="center" mt="xl">
+            Forgot your password? Ask an administrator to reset it.
+          </Text>
+        </Box>
+      </Center>
+    </Box>
   );
 }

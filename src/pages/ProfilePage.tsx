@@ -1,36 +1,67 @@
 import { useEffect, useState } from "react";
 import {
+  Avatar,
   Badge,
   Box,
   Button,
-  Card,
-  Divider,
-  Grid,
+  CheckIcon,
+  ColorSwatch,
   Group,
   PasswordInput,
+  Progress,
+  SegmentedControl,
+  SimpleGrid,
   Stack,
   Text,
   TextInput,
   Title,
+  useMantineColorScheme,
+  useMantineTheme,
+  type MantineColorScheme,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
-import { IconDeviceFloppy, IconKey, IconUser } from "@tabler/icons-react";
 
 import { changePassword, errorMessage, updateProfile } from "../api/api";
 import { useCurrentUser } from "../auth/AuthContext";
+import { Page, Section } from "../components/ui/Page";
+import { initialsOf } from "../layout/UserMenu";
+import { usePreferences } from "../lib/preferences";
+import { formatDateTime } from "../lib/format";
+import { ACCENTS, type Accent } from "../theme/theme";
 
 const MIN_PASSWORD = 8;
 
+// 0-4: length, mixed case, digits, symbols
+function passwordStrength(value: string) {
+  let score = 0;
+  if (value.length >= MIN_PASSWORD) score++;
+  if (value.length >= 12) score++;
+  if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score++;
+  if (/\d/.test(value) && /[^a-zA-Z0-9]/.test(value)) score++;
+  return score;
+}
+const STRENGTH = [
+  { label: "Too short", color: "red" },
+  { label: "Weak", color: "red" },
+  { label: "Fair", color: "yellow" },
+  { label: "Good", color: "teal" },
+  { label: "Strong", color: "teal" },
+];
+
 export default function ProfilePage() {
   const { user, refresh } = useCurrentUser();
+  const { accent, setPreference } = usePreferences();
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const theme = useMantineTheme();
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const name = user.fullName || user.username;
 
   const profile = useForm({
     initialValues: { fullName: user.fullName, email: user.email, phone: user.phone },
     validate: {
-      email: (v) => (!v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : "Invalid email address"),
+      email: (v) => (!v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : "Enter a valid email address, e.g. name@company.com"),
     },
   });
 
@@ -45,9 +76,8 @@ export default function ProfilePage() {
     initialValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
     validate: {
       currentPassword: (v) => (v ? null : "Enter your current password"),
-      newPassword: (v) =>
-        v.length >= MIN_PASSWORD ? null : `At least ${MIN_PASSWORD} characters`,
-      confirmPassword: (v, values) => (v === values.newPassword ? null : "Passwords don't match"),
+      newPassword: (v) => (v.length >= MIN_PASSWORD ? null : `Use at least ${MIN_PASSWORD} characters`),
+      confirmPassword: (v, values) => (v === values.newPassword ? null : "The passwords don't match"),
     },
   });
 
@@ -56,9 +86,9 @@ export default function ProfilePage() {
     try {
       await updateProfile(values);
       await refresh();
-      notifications.show({ title: "Profile updated", message: "Your details were saved", color: "green" });
+      notifications.show({ title: "Profile saved", message: "Your details were updated", color: "teal" });
     } catch (err) {
-      notifications.show({ title: "Couldn't save profile", message: errorMessage(err), color: "red" });
+      notifications.show({ title: "Couldn't save your profile", message: errorMessage(err), color: "red" });
     } finally {
       setSavingProfile(false);
     }
@@ -71,112 +101,165 @@ export default function ProfilePage() {
       password.reset();
       notifications.show({
         title: "Password changed",
-        message: "Other devices have been signed out",
-        color: "green",
+        message: "Your other devices have been signed out",
+        color: "teal",
       });
     } catch (err) {
-      notifications.show({ title: "Couldn't change password", message: errorMessage(err), color: "red" });
+      const message = errorMessage(err);
+      if (/current password/i.test(message)) password.setFieldError("currentPassword", message);
+      else notifications.show({ title: "Couldn't change your password", message, color: "red" });
     } finally {
       setSavingPassword(false);
     }
   });
 
+  const strength = passwordStrength(password.values.newPassword);
+
   return (
-    <Box p="md" maw={900}>
-      <Title order={2} mb="md">
-        My profile
-      </Title>
-
-      <Card withBorder radius="md" p="lg" mb="lg">
-        <Group mb="md">
-          <IconUser size={22} />
-          <Title order={4}>Account</Title>
-        </Group>
-
-        <Grid mb="md">
-          <Grid.Col span={{ base: 12, sm: 4 }}>
-            <Text size="xs" c="dimmed">Username</Text>
-            <Text fw={500}>{user.username}</Text>
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, sm: 4 }}>
-            <Text size="xs" c="dimmed">Role</Text>
-            <Badge color={user.role.isAdmin ? "red" : "blue"} variant="light">
-              {user.role.name}
-            </Badge>
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, sm: 4 }}>
-            <Text size="xs" c="dimmed">Departments</Text>
-            <Group gap={4}>
-              {user.departments.length ? (
-                user.departments.map((d) => (
-                  <Badge key={d._id} variant="outline">{d.name}</Badge>
-                ))
-              ) : (
-                <Text size="sm" c="dimmed">None</Text>
-              )}
-            </Group>
-          </Grid.Col>
-        </Grid>
-
-        <Divider mb="md" />
-
-        <form onSubmit={saveProfile}>
-          <Grid>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <TextInput label="Full name" {...profile.getInputProps("fullName")} />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <TextInput label="Email" {...profile.getInputProps("email")} />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <TextInput label="Phone" {...profile.getInputProps("phone")} />
-            </Grid.Col>
-          </Grid>
-          <Group justify="flex-end" mt="md">
-            <Button
-              type="submit"
-              loading={savingProfile}
-              disabled={!profile.isDirty()}
-              leftSection={<IconDeviceFloppy size={14} />}
-            >
-              Save details
-            </Button>
+    <Page title="My profile" breadcrumbs={[{ label: "My profile" }]} width="narrow">
+      {/* identity */}
+      <Group gap="lg" mb="xl" wrap="nowrap" align="center">
+        <Avatar size={72} radius="xl" color="initials" name={name}>
+          {initialsOf(name)}
+        </Avatar>
+        <Stack gap={6} style={{ minWidth: 0 }}>
+          <Title order={2} style={{ overflowWrap: "anywhere" }}>
+            {name}
+          </Title>
+          <Group gap={6} wrap="wrap">
+            <Text size="sm" c="dimmed">
+              @{user.username}
+            </Text>
+            <Badge color={user.role.isAdmin ? "red" : "blue"}>{user.role.name}</Badge>
+            {user.departments.map((d) => (
+              <Badge key={d._id} variant="default">
+                {d.name}
+              </Badge>
+            ))}
           </Group>
-        </form>
-      </Card>
+          {user.lastLoginAt && (
+            <Text size="xs" c="dimmed">
+              Last sign-in {formatDateTime(user.lastLoginAt)}
+            </Text>
+          )}
+        </Stack>
+      </Group>
 
-      <Card withBorder radius="md" p="lg">
-        <Group mb="md">
-          <IconKey size={22} />
-          <Title order={4}>Change password</Title>
-        </Group>
-
-        <form onSubmit={savePassword}>
-          <Stack maw={400}>
-            <PasswordInput
-              label="Current password"
-              autoComplete="current-password"
-              {...password.getInputProps("currentPassword")}
-            />
-            <PasswordInput
-              label="New password"
-              description={`At least ${MIN_PASSWORD} characters`}
-              autoComplete="new-password"
-              {...password.getInputProps("newPassword")}
-            />
-            <PasswordInput
-              label="Confirm new password"
-              autoComplete="new-password"
-              {...password.getInputProps("confirmPassword")}
-            />
-            <Group>
-              <Button type="submit" loading={savingPassword}>
-                Change password
+      <Stack gap="lg">
+        <Section title="Personal details" description="How you appear to others in the app.">
+          <form onSubmit={saveProfile}>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+              <TextInput label="Full name" autoComplete="name" {...profile.getInputProps("fullName")} />
+              <TextInput label="Username" value={user.username} disabled description="Only an administrator can change it" />
+              <TextInput label="Email" type="email" autoComplete="email" {...profile.getInputProps("email")} />
+              <TextInput label="Phone" type="tel" autoComplete="tel" {...profile.getInputProps("phone")} />
+            </SimpleGrid>
+            <Group justify="flex-end" mt="lg" gap="xs">
+              {profile.isDirty() && (
+                <Button variant="default" onClick={() => profile.reset()}>
+                  Discard
+                </Button>
+              )}
+              <Button type="submit" loading={savingProfile} disabled={!profile.isDirty()}>
+                Save changes
               </Button>
             </Group>
+          </form>
+        </Section>
+
+        <Section
+          title="Password"
+          description="Use at least 8 characters. A longer password with mixed case, numbers and symbols is stronger."
+        >
+          <form onSubmit={savePassword}>
+            <Stack gap="md" maw={420}>
+              <PasswordInput
+                label="Current password"
+                autoComplete="current-password"
+                {...password.getInputProps("currentPassword")}
+              />
+              <Box>
+                <PasswordInput
+                  label="New password"
+                  autoComplete="new-password"
+                  {...password.getInputProps("newPassword")}
+                />
+                {password.values.newPassword && (
+                  <Group gap="xs" mt={6} wrap="nowrap" aria-live="polite">
+                    <Progress
+                      value={(strength / 4) * 100}
+                      color={STRENGTH[strength].color}
+                      size="sm"
+                      style={{ flex: 1 }}
+                      aria-label="Password strength"
+                    />
+                    <Text size="xs" c="dimmed" w={64}>
+                      {STRENGTH[strength].label}
+                    </Text>
+                  </Group>
+                )}
+              </Box>
+              <PasswordInput
+                label="Confirm new password"
+                autoComplete="new-password"
+                {...password.getInputProps("confirmPassword")}
+              />
+              <Group>
+                <Button type="submit" loading={savingPassword}>
+                  Change password
+                </Button>
+              </Group>
+            </Stack>
+          </form>
+        </Section>
+
+        <Section title="Appearance" description="Saved on this device.">
+          <Stack gap="lg">
+            <Box>
+              <Text size="sm" fw={500} mb={6} id="scheme-label">
+                Colour scheme
+              </Text>
+              <SegmentedControl
+                aria-labelledby="scheme-label"
+                value={colorScheme}
+                onChange={(v) => setColorScheme(v as MantineColorScheme)}
+                data={[
+                  { value: "light", label: "Light" },
+                  { value: "dark", label: "Dark" },
+                  { value: "auto", label: "System" },
+                ]}
+              />
+            </Box>
+            <Box>
+              <Text size="sm" fw={500} mb={6} id="accent-label">
+                Accent colour
+              </Text>
+              <Group gap="sm" role="radiogroup" aria-labelledby="accent-label">
+                {(Object.keys(ACCENTS) as Accent[]).map((key) => (
+                  <Stack key={key} gap={4} align="center">
+                    <ColorSwatch
+                      component="button"
+                      type="button"
+                      role="radio"
+                      aria-checked={accent === key}
+                      aria-label={ACCENTS[key]}
+                      color={theme.colors[key][6]}
+                      size={32}
+                      onClick={() => setPreference("accent", key)}
+                      style={{ color: "white", cursor: "pointer" }}
+                    >
+                      {accent === key && <CheckIcon size={12} />}
+                    </ColorSwatch>
+                    <Text size="xs" c="dimmed">
+                      {ACCENTS[key]}
+                    </Text>
+                  </Stack>
+                ))}
+              </Group>
+            </Box>
           </Stack>
-        </form>
-      </Card>
-    </Box>
+        </Section>
+      </Stack>
+    </Page>
   );
 }

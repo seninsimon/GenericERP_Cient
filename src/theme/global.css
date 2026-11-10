@@ -1,0 +1,61 @@
+/* Global base styles. Components are styled through the Mantine theme and
+   CSS modules; keep this file small. See UI_GUIDELINES.md. */
+
+html,
+body {
+  background: var(--app-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  /* Inter: straight 1 and open digits read better in data-dense UIs */
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* numbers in tables, stats and totals line up */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* screen-reader-only text */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* "Skip to content" link, visible on keyboard focus only */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 1000;
+  padding: 8px 12px;
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-primary-color-filled);
+  color: var(--mantine-primary-color-contrast);
+  font-weight: 500;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+/* thin, unobtrusive scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mantine-color-default-border) transparent;
+}
+
+/* read-only rich text in view mode */
+.rich-text-view .ProseMirror {
+  outline: none;
+}

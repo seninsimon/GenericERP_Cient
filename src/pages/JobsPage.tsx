@@ -1,244 +1,244 @@
-import { Fragment, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
-  ActionIcon,
   Alert,
-  Badge,
-  Box,
+  Anchor,
   Button,
-  Card,
-  Center,
-  Collapse,
+  Drawer,
   Group,
-  Loader,
-  Pagination,
+  Menu,
+  ScrollArea,
   Stack,
   Table,
   Text,
-  Title,
   Tooltip,
 } from "@mantine/core";
-import {
-  IconAlertCircle,
-  IconChevronDown,
-  IconChevronRight,
-  IconDownload,
-  IconFileExport,
-  IconFileImport,
-  IconTransferIn,
-} from "@tabler/icons-react";
+import { useMediaQuery } from "@mantine/hooks";
+import { IconAlertCircle, IconDownload, IconFileExport, IconFileImport } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import dayjs from "dayjs";
+import { Link } from "react-router-dom";
 
 import { errorMessage, getJobs, jobDownloadUrl, type Job } from "../api/api";
 import { useCurrentUser } from "../auth/AuthContext";
+import { DataTable, type DataTableColumn } from "../components/data-table";
+import { JobStatusBadge, jobResultSummary } from "../components/JobStatusBadge";
+import { EmptyState } from "../components/ui/EmptyState";
+import { Page, PageHeader } from "../components/ui/Page";
+import { tablePath, tableTitle } from "../layout/nav";
+import { formatDateTime, formatNumber, formatRelative } from "../lib/format";
 
-const PAGE_SIZE = 25;
+const isActive = (job: Job) => job.status === "queued" || job.status === "running";
 
-const STATUS_COLORS: Record<Job["status"], string> = {
-  queued: "gray",
-  running: "blue",
-  done: "green",
-  failed: "red",
-};
+function TypeCell({ job }: { job: Job }) {
+  return (
+    <Group gap={6} wrap="nowrap">
+      {job.type === "import" ? <IconFileImport size={16} aria-hidden /> : <IconFileExport size={16} aria-hidden />}
+      <Text span size="sm">
+        {job.type === "import" ? "Import" : "Export"}
+      </Text>
+    </Group>
+  );
+}
 
-const fmt = (n?: number) => (n ?? 0).toLocaleString();
-const time = (iso: string | null) => (iso ? dayjs(iso).format("DD MMM YYYY, HH:mm") : "—");
+function downloadLabel(job: Job) {
+  return job.type === "import" ? "Errors CSV" : "Download CSV";
+}
 
-// "1,204 rows" / "980 inserted, 3 failed" / "processing… 300 rows"
-const summary = (job: Job) => {
-  if (job.status === "queued") return "Waiting to start";
-  if (job.status === "running") return `Processing… ${fmt(job.progress)} rows`;
-  if (job.status === "failed") return job.error ?? "Failed";
-  if (job.type === "export") return `${fmt(job.result?.rows ?? job.progress)} rows`;
-  return `${fmt(job.result?.inserted)} inserted, ${fmt(job.result?.failed)} failed`;
-};
+function JobDetails({ job, onClose }: { job: Job | null; onClose: () => void }) {
+  const isMobile = useMediaQuery("(max-width: 48em)");
+  const row = (label: string, value: ReactNode) => (
+    <Group justify="space-between" wrap="nowrap" gap="md" py={6} style={{ borderBottom: "1px solid var(--app-border)" }}>
+      <Text size="sm" c="dimmed">
+        {label}
+      </Text>
+      <Text size="sm" ta="right" component="div">
+        {value}
+      </Text>
+    </Group>
+  );
+  return (
+    <Drawer
+      opened={!!job}
+      onClose={onClose}
+      title={job ? `${job.type === "import" ? "Import into" : "Export of"} ${tableTitle(job.tableName)}` : ""}
+      size={isMobile ? "100%" : "md"}
+    >
+      {job && (
+        <Stack gap="md">
+          <Stack gap={0}>
+            {row("Status", <JobStatusBadge status={job.status} />)}
+            {row("Table", <Anchor component={Link} to={tablePath(job.tableName)}>{tableTitle(job.tableName)}</Anchor>)}
+            {row("Started by", job.username)}
+            {row("Created", formatDateTime(job.createdAt))}
+            {job.startedAt && row("Started", formatDateTime(job.startedAt))}
+            {job.finishedAt && row("Finished", formatDateTime(job.finishedAt))}
+            {row("Processed", <span className="tabular-nums">{formatNumber(job.progress)} rows</span>)}
+            {job.result && row("Result", jobResultSummary(job))}
+          </Stack>
+
+          {job.error && (
+            <Alert color="red" icon={<IconAlertCircle size={16} />} title="The job failed">
+              {job.error}
+            </Alert>
+          )}
+
+          {job.hasFile && (
+            <Button
+              component="a"
+              href={jobDownloadUrl(job._id)}
+              download
+              leftSection={<IconDownload size={16} />}
+              variant={job.type === "export" ? "filled" : "default"}
+            >
+              {downloadLabel(job)}
+            </Button>
+          )}
+
+          {!!job.result?.errors?.length && (
+            <Stack gap="xs">
+              <Text fw={600} size="sm">
+                Problems ({formatNumber(job.result.errors.length)}
+                {job.result.failed && job.result.failed > job.result.errors.length ? ` of ${formatNumber(job.result.failed)}` : ""})
+              </Text>
+              <ScrollArea.Autosize mah={360}>
+                <Table verticalSpacing={6} fz="sm" aria-label="Import problems">
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th w={64}>Row</Table.Th>
+                      <Table.Th>Problem</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {job.result.errors.map((e, i) => (
+                      <Table.Tr key={i}>
+                        <Table.Td className="tabular-nums">{e.row}</Table.Td>
+                        <Table.Td>{e.message}</Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea.Autosize>
+            </Stack>
+          )}
+        </Stack>
+      )}
+    </Drawer>
+  );
+}
 
 export default function JobsPage() {
   const { isAdmin } = useCurrentUser();
-  const [page, setPage] = useState(1);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
 
-  const jobs = useQuery({
-    queryKey: ["jobs", page],
-    queryFn: async () => (await getJobs(page, PAGE_SIZE)).data,
-    // keep polling while something is still in progress
-    refetchInterval: (query) =>
-      query.state.data?.data.some((j) => j.status === "queued" || j.status === "running")
-        ? 3000
-        : false,
+  // the latest 100 jobs; searched, sorted and paged in the browser
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ["jobs", "list"],
+    queryFn: async () => (await getJobs(1, 100)).data,
+    // poll while anything is still running
+    refetchInterval: (q) => (q.state.data?.data.some(isActive) ? 3000 : false),
   });
 
-  const rows = jobs.data?.data ?? [];
-  const totalPages = Math.max(1, Math.ceil((jobs.data?.total ?? 0) / PAGE_SIZE));
+  const jobs = data?.data ?? [];
+  const selectedJob = jobs.find((j) => j._id === selected) ?? null;
+
+  const columns = useMemo<DataTableColumn<Job>[]>(
+    () => [
+      { id: "type", header: "Type", width: 110, sortable: true, cell: (j) => <TypeCell job={j} />, mobile: "subtitle" },
+      {
+        id: "tableName",
+        header: "Table",
+        sortable: true,
+        hideable: false,
+        mobile: "title",
+        cell: (j) => (
+          <Anchor component={Link} to={tablePath(j.tableName)} size="sm" fw={500}>
+            {tableTitle(j.tableName)}
+          </Anchor>
+        ),
+      },
+      { id: "status", header: "Status", width: 110, sortable: true, cell: (j) => <JobStatusBadge status={j.status} /> },
+      {
+        id: "result",
+        header: "Result",
+        width: 180,
+        accessor: (j) => jobResultSummary(j),
+        cell: (j) => {
+          const text = jobResultSummary(j);
+          return text ? (
+            <Text span size="sm" c={j.status === "failed" ? "red" : j.result?.failed ? "orange" : undefined}>
+              {text}
+            </Text>
+          ) : (
+            <Text span c="dimmed">
+              —
+            </Text>
+          );
+        },
+      },
+      {
+        id: "createdAt",
+        header: "Started",
+        width: 140,
+        sortable: true,
+        cell: (j) => (
+          <Tooltip label={formatDateTime(j.createdAt)}>
+            <Text span size="sm">
+              {formatRelative(j.createdAt)}
+            </Text>
+          </Tooltip>
+        ),
+      },
+      ...(isAdmin ? [{ id: "username", header: "User", width: 120, sortable: true } as DataTableColumn<Job>] : []),
+    ],
+    [isAdmin]
+  );
 
   return (
-    <Box p="md" maw={1200}>
-      <Group justify="space-between" mb="md">
-        <Group gap="xs">
-          <IconTransferIn size={26} />
-          <Title order={2}>Imports &amp; exports</Title>
-        </Group>
-        <Button variant="subtle" size="xs" onClick={() => jobs.refetch()} loading={jobs.isFetching}>
-          Refresh
-        </Button>
-      </Group>
+    <Page title="Imports & exports" breadcrumbs={[{ label: "Imports & exports" }]}>
+      <PageHeader
+        title="Imports & exports"
+        description={
+          isAdmin
+            ? "The latest CSV imports and exports from everyone. Files are kept for 14 days."
+            : "Your latest CSV imports and exports. Files are kept for 14 days."
+        }
+      />
 
-      <Card withBorder radius="md" p="md">
-        {jobs.isLoading ? (
-          <Center h={200}>
-            <Loader />
-          </Center>
-        ) : jobs.isError ? (
-          <Alert color="red" icon={<IconAlertCircle size={16} />}>
-            {errorMessage(jobs.error, "Couldn't load jobs")}
-          </Alert>
-        ) : !rows.length ? (
-          <Text c="dimmed" size="sm" ta="center" py="xl">
-            No imports or exports yet. Use "Export CSV" or "Import CSV" on a table.
-          </Text>
-        ) : (
-          <Stack>
-            <Table.ScrollContainer minWidth={800}>
-              <Table verticalSpacing="sm" highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th w={30} />
-                    <Table.Th>Type</Table.Th>
-                    <Table.Th>Table</Table.Th>
-                    <Table.Th>Status</Table.Th>
-                    <Table.Th>Result</Table.Th>
-                    {isAdmin && <Table.Th>User</Table.Th>}
-                    <Table.Th>Started</Table.Th>
-                    <Table.Th>Finished</Table.Th>
-                    <Table.Th />
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {rows.map((job) => {
-                    const errors = job.result?.errors ?? [];
-                    const canExpand = errors.length > 0 || (job.status === "failed" && job.error);
-                    const isOpen = expanded === job._id;
-                    return (
-                      <Fragment key={job._id}>
-                        <Table.Tr>
-                          <Table.Td>
-                            {canExpand && (
-                              <ActionIcon
-                                variant="subtle"
-                                size="sm"
-                                onClick={() => setExpanded(isOpen ? null : job._id)}
-                                aria-label="Show details"
-                              >
-                                {isOpen ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-                              </ActionIcon>
-                            )}
-                          </Table.Td>
-                          <Table.Td>
-                            <Group gap={6} wrap="nowrap">
-                              {job.type === "export" ? (
-                                <IconFileExport size={16} />
-                              ) : (
-                                <IconFileImport size={16} />
-                              )}
-                              <Text size="sm">{job.type === "export" ? "Export" : "Import"}</Text>
-                            </Group>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" fw={500}>
-                              {job.tableName}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge
-                              color={STATUS_COLORS[job.status]}
-                              variant="light"
-                              leftSection={job.status === "running" ? <Loader size={10} /> : undefined}
-                            >
-                              {job.status}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text
-                              size="sm"
-                              c={job.status === "failed" ? "red" : job.result?.failed ? "orange" : undefined}
-                              lineClamp={1}
-                              maw={260}
-                            >
-                              {summary(job)}
-                            </Text>
-                          </Table.Td>
-                          {isAdmin && (
-                            <Table.Td>
-                              <Text size="sm">{job.username}</Text>
-                            </Table.Td>
-                          )}
-                          <Table.Td>
-                            <Text size="xs">{time(job.createdAt)}</Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="xs">{time(job.finishedAt)}</Text>
-                          </Table.Td>
-                          <Table.Td>
-                            {job.hasFile && (
-                              <Tooltip
-                                label={job.type === "export" ? "Download CSV" : "Download error report"}
-                              >
-                                <Button
-                                  component="a"
-                                  href={jobDownloadUrl(job._id)}
-                                  size="xs"
-                                  variant="light"
-                                  leftSection={<IconDownload size={14} />}
-                                >
-                                  {job.type === "export" ? "Download" : "Errors CSV"}
-                                </Button>
-                              </Tooltip>
-                            )}
-                          </Table.Td>
-                        </Table.Tr>
-
-                        {canExpand && (
-                          <Table.Tr style={{ borderTop: isOpen ? undefined : "none" }}>
-                            <Table.Td colSpan={isAdmin ? 9 : 8} p={0}>
-                              <Collapse in={isOpen}>
-                                <Box p="sm" bg="var(--mantine-color-gray-0)">
-                                  {job.status === "failed" && job.error && (
-                                    <Text size="sm" c="red" mb={errors.length ? "xs" : 0}>
-                                      {job.error}
-                                    </Text>
-                                  )}
-                                  {errors.length > 0 && (
-                                    <Stack gap={2}>
-                                      <Text size="xs" fw={600}>
-                                        First {errors.length} problem{errors.length === 1 ? "" : "s"}:
-                                      </Text>
-                                      {errors.map((e, i) => (
-                                        <Text key={i} size="xs">
-                                          Row {e.row}: {e.message}
-                                        </Text>
-                                      ))}
-                                    </Stack>
-                                  )}
-                                </Box>
-                              </Collapse>
-                            </Table.Td>
-                          </Table.Tr>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-
-            {totalPages > 1 && (
-              <Group justify="flex-end">
-                <Pagination value={page} onChange={setPage} total={totalPages} size="sm" />
-              </Group>
+      <DataTable<Job>
+        label="Imports and exports"
+        mode="client"
+        data={jobs}
+        columns={columns}
+        getRowId={(j) => j._id}
+        loading={isLoading}
+        fetching={isFetching}
+        error={error ? errorMessage(error, "Couldn't load your jobs") : null}
+        onRetry={() => refetch()}
+        searchPlaceholder="Search jobs…"
+        storageKey="jobs"
+        onRowClick={(j) => setSelected(j._id)}
+        rowActions={(j) => (
+          <>
+            <Menu.Item onClick={() => setSelected(j._id)}>View details</Menu.Item>
+            {j.hasFile && (
+              <Menu.Item component="a" href={jobDownloadUrl(j._id)} download leftSection={<IconDownload size={14} />}>
+                {downloadLabel(j)}
+              </Menu.Item>
             )}
-          </Stack>
+            <Menu.Item component={Link} to={tablePath(j.tableName)}>
+              Open table
+            </Menu.Item>
+          </>
         )}
-      </Card>
-    </Box>
+        emptyState={() => (
+          <EmptyState
+            icon={<IconFileExport size={26} stroke={1.5} />}
+            title="No imports or exports yet"
+            description="Open a table and use Import or Export. Large files are processed in the background and appear here."
+          />
+        )}
+      />
+
+      <JobDetails job={selectedJob} onClose={() => setSelected(null)} />
+    </Page>
   );
 }

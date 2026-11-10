@@ -73,6 +73,11 @@ export const updateColumn = (table: string, name: string, data: any) =>
 
 //tables
 
+// One page of records. Rows are keyed by column NAME and include
+// _createdAt/_updatedAt (and _department/_departmentId when relevant).
+// `filters` = column filters (see components/data-table/FilterBar).
+export type ListFilter = { field: string; op: string; value?: unknown; value2?: unknown };
+
 export const getTableData = (
   table: string,
   params: {
@@ -81,8 +86,22 @@ export const getTableData = (
     search?: string;
     sort?: string;
     order?: "asc" | "desc";
+    filters?: ListFilter[];
   }
-) => api.get(`/table/${table}`, { params });
+) => {
+  const { filters, ...rest } = params;
+  // only field/op/value(2) go to the server (chips may carry display labels)
+  const clean = filters?.map(({ field, op, value, value2 }) => ({ field, op, value, value2 }));
+  return api.get(`/table/${encodeURIComponent(table)}`, {
+    params: { ...rest, ...(clean?.length ? { filters: JSON.stringify(clean) } : {}) },
+  });
+};
+
+export const bulkDeleteRecords = (table: string, ids: string[]) =>
+  api.post<{ message: string; deleted: number; notFound: number }>(
+    `/table/${encodeURIComponent(table)}/bulk-delete`,
+    { ids }
+  );
 
 export const insertData = (table: string, data: any) =>
   api.post(`/table/${table}`, data);
@@ -205,8 +224,12 @@ export type Job = {
   finishedAt: string | null;
 };
 
-export const startExport = (table: string) =>
-  api.post<{ job: Job }>(`/table/${encodeURIComponent(table)}/export`);
+// Export the whole table, or only what matches `view` (current search + filters).
+export const startExport = (table: string, view?: { search?: string; filters?: ListFilter[] }) =>
+  api.post<{ job: Job }>(`/table/${encodeURIComponent(table)}/export`, {
+    search: view?.search || undefined,
+    filters: view?.filters?.map(({ field, op, value, value2 }) => ({ field, op, value, value2 })),
+  });
 
 export const startImport = (table: string, file: File, departmentId?: string | null) => {
   const formData = new FormData();

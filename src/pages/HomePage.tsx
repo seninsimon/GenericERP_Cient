@@ -1,38 +1,368 @@
-import { Center, Loader, Stack, Text, Title } from "@mantine/core";
-import { IconLock } from "@tabler/icons-react";
-import { Navigate } from "react-router-dom";
+import {
+  Anchor,
+  Box,
+  Button,
+  Card,
+  Group,
+  Progress,
+  SimpleGrid,
+  Skeleton,
+  Stack,
+  Text,
+  ThemeIcon,
+  Title,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
+import {
+  IconArrowRight,
+  IconBuilding,
+  IconCircleCheck,
+  IconCircleDashed,
+  IconDatabaseCog,
+  IconFileExport,
+  IconFileImport,
+  IconLock,
+  IconPlus,
+  IconShieldLock,
+  IconTable,
+  IconUsers,
+} from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+import dayjs from "dayjs";
+import { Link, useNavigate } from "react-router-dom";
 
-import { useCurrentUser } from "../auth/AuthContext";
+import { getAuditLog, getJobs, getTableData } from "../api/api";
+import { useDepartments, useRoles, useUsers } from "../api/reactQueryHooks/useAdmin";
 import { useTables } from "../api/reactQueryHooks/useTables";
+import { useCurrentUser } from "../auth/AuthContext";
+import { JobStatusBadge, jobResultSummary } from "../components/JobStatusBadge";
+import { EmptyState } from "../components/ui/EmptyState";
+import { Page, Section } from "../components/ui/Page";
+import { newRecordPath, tablePath, tableTitle } from "../layout/nav";
+import { formatDateTime, formatNumber, formatRelative } from "../lib/format";
+import { ActionBadge, describeEntry } from "../utils/auditFormat";
 
-// Admins land on Settings; everyone else on the first table they can open.
-export default function HomePage() {
-  const { isAdmin, user } = useCurrentUser();
-  const { data: tables = [], isLoading } = useTables();
+type TableInfo = { tableName: string; permissions?: { create?: boolean } };
 
-  if (isAdmin) return <Navigate to="/settings" replace />;
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+};
 
-  if (isLoading) {
-    return (
-      <Center h={300}>
-        <Loader />
-      </Center>
-    );
-  }
+/* ---------------- one table card ---------------- */
 
-  const first = tables.find((t: any) => t.showInMenu !== false);
-  if (first) return <Navigate to={`/table/${first.tableName}`} replace />;
+function TableCard({ table }: { table: TableInfo }) {
+  const navigate = useNavigate();
+  const { data, isLoading } = useQuery({
+    queryKey: ["tableCount", table.tableName],
+    queryFn: async () => (await getTableData(table.tableName, { page: 1, limit: 1 })).data,
+    staleTime: 60_000,
+  });
+  const title = tableTitle(table.tableName);
 
   return (
-    <Center h={400}>
-      <Stack align="center" gap="xs">
-        <IconLock size={40} stroke={1.5} />
-        <Title order={4}>Welcome, {user.fullName || user.username}</Title>
-        <Text c="dimmed" ta="center" maw={420}>
-          You don't have access to any tables yet. Ask an administrator to assign you
-          a department and a role.
+    <Card padding="md" style={{ display: "flex", flexDirection: "column" }}>
+      <UnstyledButton
+        onClick={() => navigate(tablePath(table.tableName))}
+        aria-label={`Open ${title}`}
+        style={{ flex: 1 }}
+      >
+        <Group gap="sm" wrap="nowrap" align="flex-start">
+          <ThemeIcon variant="light" size={36} radius="md" aria-hidden>
+            <IconTable size={18} stroke={1.75} />
+          </ThemeIcon>
+          <Box style={{ minWidth: 0 }}>
+            <Text fw={600} truncate>
+              {title}
+            </Text>
+            {isLoading ? (
+              <Skeleton h={12} w={70} mt={6} />
+            ) : (
+              <Text size="sm" c="dimmed" className="tabular-nums">
+                {data?.totalIsEstimate ? "~" : ""}
+                {formatNumber(data?.total ?? 0)} {data?.total === 1 ? "record" : "records"}
+              </Text>
+            )}
+          </Box>
+        </Group>
+      </UnstyledButton>
+      <Group gap="xs" mt="md">
+        <Button
+          component={Link}
+          to={tablePath(table.tableName)}
+          variant="default"
+          size="xs"
+          rightSection={<IconArrowRight size={14} />}
+        >
+          Open
+        </Button>
+        {table.permissions?.create && (
+          <Button
+            component={Link}
+            to={newRecordPath(table.tableName)}
+            variant="subtle"
+            size="xs"
+            leftSection={<IconPlus size={14} />}
+            aria-label={`New record in ${title}`}
+          >
+            New
+          </Button>
+        )}
+      </Group>
+    </Card>
+  );
+}
+
+/* ---------------- admin: getting started ---------------- */
+
+function GetStarted({ tableCount }: { tableCount: number }) {
+  const { data: departments = [], isLoading: l1 } = useDepartments();
+  const { data: roles = [], isLoading: l2 } = useRoles();
+  const { data: users = [], isLoading: l3 } = useUsers();
+  if (l1 || l2 || l3) return null;
+
+  const steps = [
+    { done: departments.length > 0, label: "Create departments", to: "/settings/departments", icon: IconBuilding },
+    { done: tableCount > 0, label: "Create a table and its columns", to: "/settings/tables", icon: IconDatabaseCog },
+    { done: roles.some((r) => !r.isAdmin), label: "Create a role with table permissions", to: "/settings/roles", icon: IconShieldLock },
+    { done: users.length > 1, label: "Add users and assign departments", to: "/settings/users", icon: IconUsers },
+  ];
+  const completed = steps.filter((s) => s.done).length;
+  if (completed === steps.length) return null;
+
+  return (
+    <Section
+      title="Get started"
+      description={`${completed} of ${steps.length} steps done. Set these up so your team can start working.`}
+    >
+      <Progress value={(completed / steps.length) * 100} size="sm" mb="md" aria-label="Setup progress" />
+      <Stack gap={4}>
+        {steps.map((step) => (
+          <Group key={step.to} justify="space-between" wrap="nowrap" py={6}>
+            <Group gap="sm" wrap="nowrap">
+              {step.done ? (
+                <IconCircleCheck size={20} color="var(--mantine-color-teal-6)" aria-label="Done" />
+              ) : (
+                <IconCircleDashed size={20} color="var(--mantine-color-dimmed)" aria-label="Not done" />
+              )}
+              <Text size="sm" td={step.done ? "line-through" : undefined} c={step.done ? "dimmed" : undefined}>
+                {step.label}
+              </Text>
+            </Group>
+            {!step.done && (
+              <Button component={Link} to={step.to} size="xs" variant="light">
+                Set up
+              </Button>
+            )}
+          </Group>
+        ))}
+      </Stack>
+    </Section>
+  );
+}
+
+/* ---------------- admin: recent activity ---------------- */
+
+function RecentActivity() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["audit", "recent"],
+    queryFn: async () => (await getAuditLog({ limit: 8 })).data,
+  });
+
+  return (
+    <Section
+      title="Recent activity"
+      actions={
+        <Anchor component={Link} to="/settings/audit" size="sm">
+          View all
+        </Anchor>
+      }
+      padding={0}
+    >
+      {isLoading ? (
+        <Stack p="lg" gap="sm">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} h={18} />
+          ))}
+        </Stack>
+      ) : !data?.data.length ? (
+        <EmptyState compact title="No activity yet" />
+      ) : (
+        <Stack gap={0}>
+          {data.data.map((entry) => (
+            <Group
+              key={entry._id}
+              justify="space-between"
+              wrap="nowrap"
+              px="lg"
+              py="sm"
+              gap="sm"
+              style={{ borderBottom: "1px solid var(--app-border)" }}
+            >
+              <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                <ActionBadge action={entry.action} />
+                <Text size="sm" truncate>
+                  <Text span fw={500} inherit>
+                    {entry.username ?? "System"}
+                  </Text>{" "}
+                  <Text span c="dimmed" inherit>
+                    · {describeEntry(entry)}
+                  </Text>
+                </Text>
+              </Group>
+              <Tooltip label={formatDateTime(entry.at)}>
+                <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
+                  {formatRelative(entry.at)}
+                </Text>
+              </Tooltip>
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </Section>
+  );
+}
+
+/* ---------------- recent jobs ---------------- */
+
+function RecentJobs() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["jobs", "recent"],
+    queryFn: async () => (await getJobs(1, 5)).data,
+  });
+
+  return (
+    <Section
+      title="Recent imports & exports"
+      actions={
+        <Anchor component={Link} to="/jobs" size="sm">
+          View all
+        </Anchor>
+      }
+      padding={0}
+    >
+      {isLoading ? (
+        <Stack p="lg" gap="sm">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} h={18} />
+          ))}
+        </Stack>
+      ) : !data?.data.length ? (
+        <EmptyState
+          compact
+          icon={<IconFileExport size={20} stroke={1.5} />}
+          title="No imports or exports yet"
+          description="Use Import or Export on any table."
+        />
+      ) : (
+        <Stack gap={0}>
+          {data.data.map((job) => (
+            <Group
+              key={job._id}
+              justify="space-between"
+              wrap="nowrap"
+              px="lg"
+              py="sm"
+              gap="sm"
+              style={{ borderBottom: "1px solid var(--app-border)" }}
+            >
+              <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                {job.type === "import" ? (
+                  <IconFileImport size={18} aria-label="Import" />
+                ) : (
+                  <IconFileExport size={18} aria-label="Export" />
+                )}
+                <Box style={{ minWidth: 0 }}>
+                  <Text size="sm" fw={500} truncate>
+                    {tableTitle(job.tableName)}
+                  </Text>
+                  <Text size="xs" c="dimmed" truncate>
+                    {jobResultSummary(job) || formatRelative(job.createdAt)}
+                  </Text>
+                </Box>
+              </Group>
+              <JobStatusBadge status={job.status} />
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </Section>
+  );
+}
+
+/* ---------------- page ---------------- */
+
+export default function HomePage() {
+  const { user, isAdmin } = useCurrentUser();
+  const { data: tables = [], isLoading } = useTables();
+  const firstName = (user.fullName || user.username).split(/\s+/)[0];
+  const visible = (tables as (TableInfo & { showInMenu?: boolean })[]).filter((t) => t.showInMenu !== false);
+
+  return (
+    <Page title="Home" breadcrumbs={[{ label: "Home" }]} width="wide">
+      <Stack gap={4} mb="xl">
+        <Title order={2}>
+          {greeting()}, {firstName}
+        </Title>
+        <Text c="dimmed" size="sm">
+          {dayjs().format("dddd, D MMMM YYYY")}
         </Text>
       </Stack>
-    </Center>
+
+      <Stack gap="xl">
+        {isAdmin && !isLoading && <GetStarted tableCount={tables.length} />}
+
+        <Box>
+          <Group justify="space-between" mb="sm">
+            <Title order={4}>Your tables</Title>
+            {isAdmin && (
+              <Anchor component={Link} to="/settings/tables" size="sm">
+                Manage tables
+              </Anchor>
+            )}
+          </Group>
+          {isLoading ? (
+            <SimpleGrid cols={{ base: 1, xs: 2, md: 3, lg: 4 }} spacing="md">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} h={124} radius="lg" />
+              ))}
+            </SimpleGrid>
+          ) : visible.length ? (
+            <SimpleGrid cols={{ base: 1, xs: 2, md: 3, lg: 4 }} spacing="md">
+              {visible.map((t) => (
+                <TableCard key={t.tableName} table={t} />
+              ))}
+            </SimpleGrid>
+          ) : (
+            <Box bg="var(--app-surface)" style={{ border: "1px solid var(--app-border)", borderRadius: "var(--mantine-radius-lg)" }}>
+              {isAdmin ? (
+                <EmptyState
+                  icon={<IconDatabaseCog size={26} stroke={1.5} />}
+                  title="No tables yet"
+                  description="Create your first table to start storing records."
+                  action={
+                    <Button component={Link} to="/settings/tables" leftSection={<IconPlus size={16} />}>
+                      Create a table
+                    </Button>
+                  }
+                />
+              ) : (
+                <EmptyState
+                  icon={<IconLock size={26} stroke={1.5} />}
+                  title="You don't have access to any tables yet"
+                  description="Ask an administrator to give your role access and assign you a department."
+                />
+              )}
+            </Box>
+          )}
+        </Box>
+
+        <SimpleGrid cols={{ base: 1, lg: isAdmin ? 2 : 1 }} spacing="lg">
+          {isAdmin && <RecentActivity />}
+          <RecentJobs />
+        </SimpleGrid>
+      </Stack>
+    </Page>
   );
 }

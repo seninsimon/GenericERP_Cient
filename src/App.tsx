@@ -1,74 +1,73 @@
-import { lazy, Suspense } from "react";
-import type { ReactNode } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Center, Loader } from "@mantine/core";
+import { lazy, type ReactNode } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Notifications } from "@mantine/notifications";
 import { ModalsProvider } from "@mantine/modals";
 
 import ErrorBoundary from "./components/ErrorBoundary";
-import MainLayout from "./layout/MainLayout";
-import { AuthProvider } from "./auth/AuthContext";
 import ServerLoader from "./components/ServerLoader";
+import { AuthProvider, useCurrentUser } from "./auth/AuthContext";
+import AppLayout from "./layout/AppLayout";
 
-// pages are loaded on demand so the first download stays small
+// pages load on demand so the first download stays small
 const HomePage = lazy(() => import("./pages/HomePage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const JobsPage = lazy(() => import("./pages/JobsPage"));
-const TableListPage = lazy(() => import("./pages/Table/TableListPage"));
-const TableFormPage = lazy(() => import("./pages/TableFormPage"));
-const SettingsLayout = lazy(() => import("./pages/settings/SettingsLayout"));
-const SettingsTables = lazy(() => import("./pages/settings/SettingsTables"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+
+const RecordListPage = lazy(() => import("./pages/records/RecordListPage"));
+const RecordDetailPage = lazy(() => import("./pages/records/RecordDetailPage"));
+const RecordFormPage = lazy(() => import("./pages/records/RecordFormPage"));
+
+const TablesSettingsPage = lazy(() => import("./pages/settings/TablesSettingsPage"));
+const TableSettingsPage = lazy(() => import("./pages/settings/TableSettingsPage"));
 const UsersPage = lazy(() => import("./pages/settings/UsersPage"));
 const RolesPage = lazy(() => import("./pages/settings/RolesPage"));
 const DepartmentsPage = lazy(() => import("./pages/settings/DepartmentsPage"));
 const AuditLogPage = lazy(() => import("./pages/settings/AuditLogPage"));
 
-const PageLoader = () => (
-  <Center h={300}>
-    <Loader />
-  </Center>
-);
+// Admin-only pages (the API enforces this too).
+function AdminOnly({ children }: { children: ReactNode }) {
+  const { isAdmin } = useCurrentUser();
+  return isAdmin ? <>{children}</> : <Navigate to="/" replace />;
+}
 
-const page = (element: ReactNode) => <Suspense fallback={<PageLoader />}>{element}</Suspense>;
+// old record URLs (/table/x/view/:id, /table/x/edit/:id) keep working
+function LegacyRecordRedirect({ edit }: { edit?: boolean }) {
+  const { table = "", id = "" } = useParams();
+  return <Navigate to={`/table/${encodeURIComponent(table)}/${encodeURIComponent(id)}${edit ? "/edit" : ""}`} replace />;
+}
 
-function App({ themeName, setThemeName }: any) {
+export default function App() {
   return (
     <BrowserRouter>
       <ModalsProvider>
-        <Notifications position="top-right" />
-
+        <Notifications position="top-right" limit={4} />
         <ErrorBoundary>
           <ServerLoader>
             {/* shows the login page until someone is signed in */}
             <AuthProvider>
               <Routes>
-                <Route
-                  element={
-                    <MainLayout
-                      themeName={themeName}
-                      setThemeName={setThemeName}
-                    />
-                  }
-                >
-                  <Route path="/" element={page(<HomePage />)} />
-                  <Route path="/profile" element={page(<ProfilePage />)} />
-                  <Route path="/jobs" element={page(<JobsPage />)} />
+                <Route element={<AppLayout />}>
+                  <Route index element={<HomePage />} />
+                  <Route path="profile" element={<ProfilePage />} />
+                  <Route path="jobs" element={<JobsPage />} />
 
-                  {/* admins only (enforced in SettingsLayout and by the API) */}
-                  <Route path="/settings" element={page(<SettingsLayout />)}>
-                    <Route index element={<Navigate to="tables" replace />} />
-                    <Route path="tables" element={page(<SettingsTables />)} />
-                    <Route path="users" element={page(<UsersPage />)} />
-                    <Route path="roles" element={page(<RolesPage />)} />
-                    <Route path="departments" element={page(<DepartmentsPage />)} />
-                    <Route path="audit" element={page(<AuditLogPage />)} />
-                  </Route>
+                  <Route path="table/:table" element={<RecordListPage />} />
+                  <Route path="table/:table/new" element={<RecordFormPage />} />
+                  <Route path="table/:table/view/:id" element={<LegacyRecordRedirect />} />
+                  <Route path="table/:table/edit/:id" element={<LegacyRecordRedirect edit />} />
+                  <Route path="table/:table/:id" element={<RecordDetailPage />} />
+                  <Route path="table/:table/:id/edit" element={<RecordFormPage />} />
 
-                  <Route path="/table/:table" element={page(<TableListPage />)} />
-                  <Route path="/table/:table/new" element={page(<TableFormPage />)} />
-                  <Route path="/table/:table/view/:id" element={page(<TableFormPage />)} />
-                  <Route path="/table/:table/edit/:id" element={page(<TableFormPage />)} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
+                  <Route path="settings" element={<Navigate to="/settings/tables" replace />} />
+                  <Route path="settings/tables" element={<AdminOnly><TablesSettingsPage /></AdminOnly>} />
+                  <Route path="settings/tables/:table" element={<AdminOnly><TableSettingsPage /></AdminOnly>} />
+                  <Route path="settings/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
+                  <Route path="settings/roles" element={<AdminOnly><RolesPage /></AdminOnly>} />
+                  <Route path="settings/departments" element={<AdminOnly><DepartmentsPage /></AdminOnly>} />
+                  <Route path="settings/audit" element={<AdminOnly><AuditLogPage /></AdminOnly>} />
+
+                  <Route path="*" element={<NotFoundPage />} />
                 </Route>
               </Routes>
             </AuthProvider>
@@ -78,5 +77,3 @@ function App({ themeName, setThemeName }: any) {
     </BrowserRouter>
   );
 }
-
-export default App;

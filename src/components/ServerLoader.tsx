@@ -1,57 +1,76 @@
-// components/ServerLoader.tsx
-import { useEffect, useState } from "react";
-import { Center, Loader, Text, Stack, Progress } from "@mantine/core";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Box, Button, Center, Group, Progress, Stack, Text, ThemeIcon } from "@mantine/core";
 import { getHealth } from "../api/api";
 
-export default function ServerLoader({ children }: any) {
-  const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState(5);
+const SLOW_AFTER_MS = 15_000;
 
-  useEffect(() => {
-    let interval: any;
+// Splash shown until the API answers. Retries automatically with backoff
+// (3 s → 10 s); after ~15 s it explains and offers "Retry now".
+export default function ServerLoader({ children }: { children: ReactNode }) {
+  const [ready, setReady] = useState(false);
+  const [slow, setSlow] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const delay = useRef(3000);
 
-    const startChecking = async () => {
-      // Fake progress animation
-      interval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 90) return prev;
-          return prev + 5;
-        });
-      }, 1000);
-
-      try {
-        await getHealth(); // your backend ping
-        setProgress(100);
-        setTimeout(() => setLoading(false), 500);
-      } catch {
-        console.log("Waiting for backend...");
-      } finally {
-        clearInterval(interval);
-      }
-    };
-
-    startChecking();
-
-    return () => clearInterval(interval);
+  const check = useCallback(async () => {
+    if (timer.current) clearTimeout(timer.current);
+    setChecking(true);
+    try {
+      await getHealth();
+      setReady(true);
+    } catch {
+      timer.current = setTimeout(check, delay.current);
+      delay.current = Math.min(delay.current * 1.5, 10_000);
+    } finally {
+      setChecking(false);
+    }
   }, []);
 
-  if (loading) {
-    return (
-      <Center style={{ height: "100vh", flexDirection: "column" }}>
-        <Stack align="center" >
-          <Loader size="lg" />
-          <Text size="lg" fw={500}>
-            Server is waking up...
-          </Text>
-          <Text size="sm" c="dimmed">
-            This may take up to 1–2 minutes (Render cold start)
-          </Text>
-          <Progress value={progress} style={{ width: 250 }} />
-          <Text size="sm">{progress}%</Text>
-        </Stack>
-      </Center>
-    );
-  }
+  useEffect(() => {
+    check();
+    const slowTimer = setTimeout(() => setSlow(true), SLOW_AFTER_MS);
+    return () => {
+      clearTimeout(slowTimer);
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [check]);
 
-  return children;
+  if (ready) return <>{children}</>;
+
+  return (
+    <Center mih="100dvh" bg="var(--app-bg)" p="md">
+      <Stack align="center" gap="lg" maw={360} w="100%" role="status" aria-live="polite">
+        <Group gap={10}>
+          <ThemeIcon size={40} radius="md" variant="filled" aria-hidden>
+            <Text fw={800} fz={20} c="white">
+              Z
+            </Text>
+          </ThemeIcon>
+          <Text fw={700} fz="xl">
+            Zenin ERP
+          </Text>
+        </Group>
+        <Box w="100%">
+          <Progress value={100} animated size="xs" aria-label="Connecting" />
+        </Box>
+        <Text size="sm" c="dimmed" ta="center">
+          Connecting…
+        </Text>
+        {slow && (
+          <Stack align="center" gap="xs">
+            <Text size="sm" c="dimmed" ta="center">
+              This is taking longer than usual. The server may be starting up or unreachable. We'll keep trying.
+            </Text>
+            <Button variant="default" size="xs" loading={checking} onClick={() => {
+              delay.current = 3000;
+              check();
+            }}>
+              Retry now
+            </Button>
+          </Stack>
+        )}
+      </Stack>
+    </Center>
+  );
 }

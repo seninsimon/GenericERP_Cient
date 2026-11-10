@@ -1,0 +1,206 @@
+import { useMemo, useState } from "react";
+import {
+  ActionIcon,
+  Box,
+  Group,
+  Kbd,
+  NavLink,
+  ScrollArea,
+  Skeleton,
+  Stack,
+  Text,
+  TextInput,
+  ThemeIcon,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
+import {
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+  IconSearch,
+  IconTable,
+} from "@tabler/icons-react";
+import { spotlight } from "@mantine/spotlight";
+import { NavLink as RouterLink, useLocation } from "react-router-dom";
+
+import { useTables } from "../api/reactQueryHooks/useTables";
+import { useCurrentUser } from "../auth/AuthContext";
+import { usePreferences } from "../lib/preferences";
+import { ADMIN_NAV, MAIN_NAV, tablePath, tableTitle, type NavItem } from "./nav";
+import classes from "./Sidebar.module.css";
+
+const SHOW_FILTER_FROM = 8; // tables
+
+function Item({
+  item,
+  collapsed,
+  active,
+  onNavigate,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  active: boolean;
+  onNavigate: () => void;
+}) {
+  const link = (
+    <NavLink
+      component={RouterLink}
+      to={item.to}
+      label={collapsed ? undefined : item.label}
+      aria-label={collapsed ? item.label : undefined}
+      leftSection={<item.icon size={18} stroke={1.75} />}
+      active={active}
+      onClick={onNavigate}
+      className={classes.link}
+      data-collapsed={collapsed || undefined}
+    />
+  );
+  return collapsed ? (
+    <Tooltip label={item.label} position="right" withArrow={false} openDelay={0}>
+      {link}
+    </Tooltip>
+  ) : (
+    link
+  );
+}
+
+function SectionLabel({ children, collapsed }: { children: string; collapsed: boolean }) {
+  return collapsed ? (
+    <Box className={classes.divider} />
+  ) : (
+    <Text className={classes.sectionLabel}>{children}</Text>
+  );
+}
+
+export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean; onNavigate: () => void }) {
+  const { isAdmin } = useCurrentUser();
+  const { setPreference } = usePreferences();
+  const location = useLocation();
+  const { data: tables = [], isLoading } = useTables();
+  const [query, setQuery] = useState("");
+
+  const menuTables = useMemo(
+    () =>
+      (tables as { tableName: string; showInMenu?: boolean }[])
+        .filter((t) => t.showInMenu !== false)
+        .filter((t) => !query || t.tableName.toLowerCase().includes(query.toLowerCase())),
+    [tables, query]
+  );
+
+  const isActive = (to: string) =>
+    to === "/" ? location.pathname === "/" : location.pathname === to || location.pathname.startsWith(`${to}/`);
+
+  return (
+    <Stack h="100%" gap={0}>
+      {/* brand + collapse */}
+      <Group h="var(--app-header-height)" px={collapsed ? 0 : "md"} justify={collapsed ? "center" : "space-between"} wrap="nowrap" className={classes.brandRow}>
+        <UnstyledButton component={RouterLink} to="/" onClick={onNavigate} aria-label="Zenin ERP home">
+          <Group gap={10} wrap="nowrap">
+            <ThemeIcon size={30} radius="md" variant="filled" aria-hidden>
+              <Text fw={800} fz={15} c="white">
+                Z
+              </Text>
+            </ThemeIcon>
+            {!collapsed && (
+              <Text fw={700} fz="md" lh={1}>
+                Zenin ERP
+              </Text>
+            )}
+          </Group>
+        </UnstyledButton>
+        {!collapsed && (
+          <Tooltip label="Collapse sidebar">
+            <ActionIcon
+              visibleFrom="sm"
+              aria-label="Collapse sidebar"
+              onClick={() => setPreference("sidebarCollapsed", true)}
+            >
+              <IconLayoutSidebarLeftCollapse size={18} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+      </Group>
+
+      {/* search / command palette */}
+      <Box px={collapsed ? 8 : "sm"} pt="sm" pb={4}>
+        {collapsed ? (
+          <Tooltip label="Search (Ctrl K)" position="right">
+            <ActionIcon variant="default" size="lg" mx="auto" display="flex" aria-label="Search" onClick={() => spotlight.open()}>
+              <IconSearch size={16} />
+            </ActionIcon>
+          </Tooltip>
+        ) : (
+          <UnstyledButton className={classes.searchButton} onClick={() => spotlight.open()} aria-label="Search and commands">
+            <Group gap={8} wrap="nowrap">
+              <IconSearch size={15} />
+              <Text size="sm" c="dimmed" style={{ flex: 1 }}>
+                Search…
+              </Text>
+              <Kbd>Ctrl K</Kbd>
+            </Group>
+          </UnstyledButton>
+        )}
+      </Box>
+
+      <ScrollArea style={{ flex: 1 }} px={collapsed ? 8 : "sm"} type="hover" component="nav" aria-label="Main">
+        <Stack gap={2} py="xs">
+          {MAIN_NAV.map((item) => (
+            <Item key={item.to} item={item} collapsed={collapsed} active={isActive(item.to)} onNavigate={onNavigate} />
+          ))}
+
+          <SectionLabel collapsed={collapsed}>Tables</SectionLabel>
+          {!collapsed && tables.length >= SHOW_FILTER_FROM && (
+            <TextInput
+              size="xs"
+              placeholder="Filter tables"
+              aria-label="Filter tables"
+              value={query}
+              onChange={(e) => setQuery(e.currentTarget.value)}
+              mb={4}
+            />
+          )}
+          {isLoading
+            ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} h={32} radius="md" />)
+            : menuTables.map((t) => (
+                <Item
+                  key={t.tableName}
+                  item={{ label: tableTitle(t.tableName), to: tablePath(t.tableName), icon: IconTable }}
+                  collapsed={collapsed}
+                  active={isActive(tablePath(t.tableName))}
+                  onNavigate={onNavigate}
+                />
+              ))}
+          {!isLoading && !menuTables.length && !collapsed && (
+            <Text size="xs" c="dimmed" px="sm" py={4}>
+              {query ? "No tables match" : "No tables yet"}
+            </Text>
+          )}
+
+          {isAdmin && (
+            <>
+              <SectionLabel collapsed={collapsed}>Administration</SectionLabel>
+              {ADMIN_NAV.map((item) => (
+                <Item key={item.to} item={item} collapsed={collapsed} active={isActive(item.to)} onNavigate={onNavigate} />
+              ))}
+            </>
+          )}
+        </Stack>
+      </ScrollArea>
+
+      {collapsed && (
+        <Box p={8} className={classes.footer}>
+          <Tooltip label="Expand sidebar" position="right">
+            <ActionIcon
+              mx="auto"
+              display="flex"
+              aria-label="Expand sidebar"
+              onClick={() => setPreference("sidebarCollapsed", false)}
+            >
+              <IconLayoutSidebarLeftExpand size={18} />
+            </ActionIcon>
+          </Tooltip>
+        </Box>
+      )}
+    </Stack>
+  );
+}

@@ -106,13 +106,7 @@ export const useDeleteColumn = (table: string) => {
 
 export const useTableData = (
     table: string,
-    params: {
-        page: number;
-        limit: number;
-        search?: string;
-        sort?: string;
-        order?: "asc" | "desc";
-    }
+    params: Parameters<typeof api.getTableData>[1]
 ) =>
     useQuery({
         queryKey: ["tableData", table, params],
@@ -121,7 +115,22 @@ export const useTableData = (
             return res.data;
         },
         enabled: !!table,
+        // keep the previous page on screen while the next one loads
+        placeholderData: (previous, previousQuery) =>
+            previousQuery?.queryKey[1] === table ? previous : undefined,
     });
+
+export const useBulkDelete = (table: string) => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (ids: string[]) => api.bulkDeleteRecords(table, ids),
+        onSuccess: (res) => {
+            qc.invalidateQueries({ queryKey: ["tableData", table] });
+            notifications.show({ title: "Records deleted", message: res.data.message, color: "green" });
+        },
+        onError: showError,
+    });
+};
 
 
 export const useInsertData = (table: string) => {

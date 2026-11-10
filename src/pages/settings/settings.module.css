@@ -1,0 +1,40 @@
+/* column type picker cards */
+.typeCard {
+  padding: var(--mantine-spacing-sm);
+  border: 1px solid var(--app-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--app-surface);
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.typeCard:hover {
+  border-color: var(--mantine-color-default-border);
+  background: var(--app-muted);
+}
+
+.typeCard[data-selected] {
+  border-color: var(--mantine-primary-color-filled);
+  background: var(--mantine-primary-color-light);
+}
+
+.typeCard:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+
+/* role permission matrix */
+.matrix th,
+.matrix td {
+  text-align: center;
+}
+
+.matrix th:first-child,
+.matrix td:first-child {
+  text-align: left;
+}
+
+.permCard {
+  border: 1px solid var(--app-border);
+  border-radius: var(--mantine-radius-md);
+  padding: var(--mantine-spacing-sm);
+}
