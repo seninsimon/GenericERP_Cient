@@ -24,14 +24,53 @@
   padding-bottom: 7px;
 }
 
-.link[data-collapsed] {
+/* icon rail (collapsed sidebar): 40px squares, centred */
+.railLink {
+  display: flex;
+  align-items: center;
   justify-content: center;
-  padding-left: 0;
-  padding-right: 0;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  flex-shrink: 0;
+  border-radius: var(--mantine-radius-md);
+  color: var(--mantine-color-text);
 }
 
-.link[data-collapsed] :global(.mantine-NavLink-section) {
-  margin: 0;
+.railLink:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.railLink[data-active] {
+  background: var(--mantine-primary-color-light);
+  color: var(--mantine-primary-color-light-color);
+}
+
+.railBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--mantine-radius-sm);
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--mantine-color-text);
+}
+
+.railLink[data-active] .railBadge {
+  border-color: transparent;
+  background: var(--mantine-primary-color-filled);
+  color: var(--mantine-primary-color-contrast);
+}
+
+.railSearch {
+  border: 1px solid var(--app-border);
+  background: var(--app-bg);
+  color: var(--mantine-color-dimmed);
 }
 
 .sectionLabel {
@@ -45,8 +84,9 @@
 
 .divider {
   height: 1px;
+  width: 32px;
   background: var(--app-border);
-  margin: 10px 6px;
+  margin: 10px auto;
 }
 
 .footer {

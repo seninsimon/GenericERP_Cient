@@ -31,36 +31,79 @@ import classes from "./Sidebar.module.css";
 
 const SHOW_FILTER_FROM = 8; // tables
 
+// Short, unique 2-letter badges for tables in the icon rail, so 18 tables
+// aren't 18 identical icons ("Companies" -> "Co", "Contacts" -> "Cn").
+function railBadges(titles: string[]): Map<string, string> {
+  const used = new Set<string>();
+  const result = new Map<string, string>();
+  for (const title of titles) {
+    const letters = title.replace(/[^A-Za-z0-9]/g, "");
+    const first = (letters[0] ?? "?").toUpperCase();
+    let badge = "";
+    for (const ch of letters.slice(1)) {
+      const candidate = first + ch.toLowerCase();
+      if (!used.has(candidate)) {
+        badge = candidate;
+        break;
+      }
+    }
+    if (!badge) badge = first + String(used.size);
+    used.add(badge);
+    result.set(title, badge);
+  }
+  return result;
+}
+
 function Item({
   item,
   collapsed,
   active,
   onNavigate,
+  badge,
 }: {
   item: NavItem;
   collapsed: boolean;
   active: boolean;
   onNavigate: () => void;
+  // rail only: show this short text instead of the icon
+  badge?: string;
 }) {
-  const link = (
+  // Icon rail: a square, centred icon button (NavLink keeps an empty label
+  // area beside its icon, which pushes the icon off-centre).
+  if (collapsed) {
+    return (
+      <Tooltip label={item.label} position="right" withArrow={false} openDelay={0}>
+        <UnstyledButton
+          component={RouterLink}
+          to={item.to}
+          onClick={onNavigate}
+          aria-label={item.label}
+          aria-current={active ? "page" : undefined}
+          data-active={active || undefined}
+          className={classes.railLink}
+        >
+          {badge ? (
+            <span className={classes.railBadge} aria-hidden>
+              {badge}
+            </span>
+          ) : (
+            <item.icon size={20} stroke={1.75} />
+          )}
+        </UnstyledButton>
+      </Tooltip>
+    );
+  }
+
+  return (
     <NavLink
       component={RouterLink}
       to={item.to}
-      label={collapsed ? undefined : item.label}
-      aria-label={collapsed ? item.label : undefined}
+      label={item.label}
       leftSection={<item.icon size={18} stroke={1.75} />}
       active={active}
       onClick={onNavigate}
       className={classes.link}
-      data-collapsed={collapsed || undefined}
     />
-  );
-  return collapsed ? (
-    <Tooltip label={item.label} position="right" withArrow={false} openDelay={0}>
-      {link}
-    </Tooltip>
-  ) : (
-    link
   );
 }
 
@@ -85,6 +128,11 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
         .filter((t) => t.showInMenu !== false)
         .filter((t) => !query || t.tableName.toLowerCase().includes(query.toLowerCase())),
     [tables, query]
+  );
+
+  const badges = useMemo(
+    () => railBadges((tables as { tableName: string }[]).map((t) => tableTitle(t.tableName))),
+    [tables]
   );
 
   const isActive = (to: string) =>
@@ -125,9 +173,9 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
       <Box px={collapsed ? 8 : "sm"} pt="sm" pb={4}>
         {collapsed ? (
           <Tooltip label="Search (Ctrl K)" position="right">
-            <ActionIcon variant="default" size="lg" mx="auto" display="flex" aria-label="Search" onClick={() => spotlight.open()}>
-              <IconSearch size={16} />
-            </ActionIcon>
+            <UnstyledButton className={`${classes.railLink} ${classes.railSearch}`} aria-label="Search" onClick={() => spotlight.open()}>
+              <IconSearch size={18} />
+            </UnstyledButton>
           </Tooltip>
         ) : (
           <UnstyledButton className={classes.searchButton} onClick={() => spotlight.open()} aria-label="Search and commands">
@@ -143,7 +191,7 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
       </Box>
 
       <ScrollArea style={{ flex: 1 }} px={collapsed ? 8 : "sm"} type="hover" component="nav" aria-label="Main">
-        <Stack gap={2} py="xs">
+        <Stack gap={collapsed ? 4 : 2} py="xs" align={collapsed ? "center" : "stretch"}>
           {MAIN_NAV.map((item) => (
             <Item key={item.to} item={item} collapsed={collapsed} active={isActive(item.to)} onNavigate={onNavigate} />
           ))}
@@ -160,11 +208,14 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
             />
           )}
           {isLoading
-            ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} h={32} radius="md" />)
+            ? Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} h={collapsed ? 40 : 32} w={collapsed ? 40 : undefined} radius="md" />
+              ))
             : menuTables.map((t) => (
                 <Item
                   key={t.tableName}
                   item={{ label: tableTitle(t.tableName), to: tablePath(t.tableName), icon: IconTable }}
+                  badge={badges.get(tableTitle(t.tableName))}
                   collapsed={collapsed}
                   active={isActive(tablePath(t.tableName))}
                   onNavigate={onNavigate}
@@ -190,14 +241,13 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
       {collapsed && (
         <Box p={8} className={classes.footer}>
           <Tooltip label="Expand sidebar" position="right">
-            <ActionIcon
-              mx="auto"
-              display="flex"
+            <UnstyledButton
+              className={classes.railLink}
               aria-label="Expand sidebar"
               onClick={() => setPreference("sidebarCollapsed", false)}
             >
-              <IconLayoutSidebarLeftExpand size={18} />
-            </ActionIcon>
+              <IconLayoutSidebarLeftExpand size={20} stroke={1.75} />
+            </UnstyledButton>
           </Tooltip>
         </Box>
       )}
