@@ -18,6 +18,8 @@ export type ColumnLike = {
   label?: string;
   multiple?: boolean;
   options?: { label: string; color: string }[];
+  formula?: { type?: string };
+  rollup?: { type?: string };
 };
 
 export const EMPTY = (
@@ -37,6 +39,12 @@ export function FieldValue({
 }) {
   if (isEmptyValue(value)) return EMPTY;
   const table = variant === "table";
+  // a formula shows like its result: a number, date, yes/no or text
+  // formulas and totals show like their result: a number, date, yes/no or text
+  if (column.type === "formula" || column.type === "rollup") {
+    const type = column.type === "formula" ? (column.formula?.type ?? "text") : (column.rollup?.type ?? "number");
+    return <FieldValue column={{ ...column, type }} value={value} variant={variant} />;
+  }
 
   switch (column.type) {
     case "number":

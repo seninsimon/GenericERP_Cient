@@ -6,6 +6,9 @@ import {
   IconFiles,
   IconHash,
   IconLink,
+  IconListNumbers,
+  IconMathFunction,
+  IconSum,
   IconPhoto,
   IconSelector,
   IconLibraryPhoto,
@@ -31,6 +34,9 @@ export const columnTypes: ColumnTypeInfo[] = [
   { value: "number", label: "Number", description: "Quantities, prices, scores", icon: IconHash, group: "Basic" },
   { value: "date", label: "Date", description: "A calendar date", icon: IconCalendar, group: "Basic" },
   { value: "boolean", label: "Yes / No", description: "A checkbox: done, paid, active", icon: IconToggleLeft, group: "Basic" },
+  { value: "autonumber", label: "Auto-number", description: "A reference given automatically: INV-0001, INV-0002", icon: IconListNumbers, group: "Basic" },
+  { value: "formula", label: "Formula", description: "Worked out from other fields: {qty} * {rate}", icon: IconMathFunction, group: "Basic" },
+  { value: "rollup", label: "Total", description: "Adds up linked records: a project's hours, an invoice's lines", icon: IconSum, group: "Links & media" },
   { value: "choice", label: "Choice", description: "Pick from a list: status, priority, category", icon: IconSelector, group: "Basic" },
   { value: "textarea", label: "Long text", description: "Several lines of plain text", icon: IconAlignLeft, group: "Content" },
   { value: "richtext", label: "Rich text", description: "Formatted text with headings and lists", icon: IconTextSize, group: "Content" },
@@ -53,10 +59,10 @@ export const columnTypeInfo = (type: string): ColumnTypeInfo =>
   };
 
 // column types that can get a database index for fast sorting ("Indexed")
-export const INDEXABLE_TYPES = ["text", "textarea", "number", "date", "boolean"];
+export const INDEXABLE_TYPES = ["text", "textarea", "number", "date", "boolean", "autonumber", "formula", "rollup"];
 
 export const INDEXED_HELP =
-  "Adds a database index so sorting by this column stays fast on large tables. Available for text, long text, number, date and yes/no columns.";
+  "Adds a database index so sorting by this column stays fast on large tables.";
 
 // "Order date" -> "order_date": a safe column name suggested from the label
 export const slugify = (label: string) =>

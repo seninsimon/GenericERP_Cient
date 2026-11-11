@@ -70,6 +70,13 @@ export const deleteColumn = (table: string, column: string) =>
 export const updateColumn = (table: string, name: string, data: any) =>
   api.put(`/schema/${table}/column/${name}`, data);
 
+// is a formula valid; what kind of value it gives, and its value on the latest record
+export const checkFormula = (table: string, expression: string, column?: string) =>
+  api.post<{ type: "number" | "text" | "date" | "boolean"; sample: unknown; hasRecords: boolean }>(
+    `/schema/${table}/formula/check`,
+    { expression, column }
+  );
+
 
 //tables
 
@@ -87,13 +94,15 @@ export const getTableData = (
     sort?: string;
     order?: "asc" | "desc";
     filters?: ListFilter[];
+    // stored values (ids, not names): for editing line items
+    raw?: boolean;
   }
 ) => {
-  const { filters, ...rest } = params;
+  const { filters, raw, ...rest } = params;
   // only field/op/value(2) go to the server (chips may carry display labels)
   const clean = filters?.map(({ field, op, value, value2 }) => ({ field, op, value, value2 }));
   return api.get(`/table/${encodeURIComponent(table)}`, {
-    params: { ...rest, ...(clean?.length ? { filters: JSON.stringify(clean) } : {}) },
+    params: { ...rest, ...(raw ? { raw: 1 } : {}), ...(clean?.length ? { filters: JSON.stringify(clean) } : {}) },
   });
 };
 
@@ -105,6 +114,14 @@ export const bulkDeleteRecords = (table: string, ids: string[]) =>
 
 export const insertData = (table: string, data: any) =>
   api.post(`/table/${table}`, data);
+
+// What the server would work out (formulas, totals, line amounts) for an
+// unsaved form, without saving anything. id = the record being edited.
+export type SavePreview = { data: Record<string, unknown>; lines: Record<string, (Record<string, unknown> & { _id: string })[]> };
+export const previewSave = (table: string, id: string | undefined, data: Record<string, unknown>) =>
+  id
+    ? api.put<SavePreview>(`/table/${encodeURIComponent(table)}/${encodeURIComponent(id)}`, data, { params: { preview: 1 } })
+    : api.post<SavePreview>(`/table/${encodeURIComponent(table)}`, data, { params: { preview: 1 } });
 
 
 export type RelationOption = { value: string; label: string };

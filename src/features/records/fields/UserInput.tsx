@@ -6,7 +6,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { getUserOptions } from "../../../api/api";
 import { useUserNames } from "../../../api/reactQueryHooks/useRecords";
 import { useCurrentUser } from "../../../auth/AuthContext";
-import { columnLabel, type RecordColumn } from "../schema";
+import type { RecordColumn } from "../schema";
+import { useLabelProps } from "./compact";
 
 const SEARCH_LIMIT = 50;
 
@@ -60,9 +61,10 @@ export function UserInput({
   }, [selected.data, selected.isLoading, results.data, ids.join(","), me._id]);
 
   const loading = results.isFetching || selected.isFetching;
+  const labelProps = useLabelProps(column);
   const common = {
     id,
-    label: columnLabel(column),
+    ...labelProps,
     data,
     searchable: true,
     clearable: true,
@@ -71,7 +73,6 @@ export function UserInput({
     // results already come filtered from the server
     filter: ({ options }: { options: unknown }) => options as never,
     nothingFoundMessage: loading ? "Loading…" : "No one found",
-    withAsterisk: Boolean(column.required),
     error,
     rightSection: loading ? <Loader size={14} /> : undefined,
     placeholder: "Type a name",

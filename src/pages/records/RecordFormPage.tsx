@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Button, Grid, Group, Paper, Select, Skeleton, Stack, Text } from "@mantine/core";
 import { useHotkeys } from "@mantine/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
 import { IconDeviceFloppy, IconPointFilled } from "@tabler/icons-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -8,18 +9,24 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { errorMessage, uploadFiles } from "../../api/api";
 import { fieldErrorsOf, useCreateRecord, useRecord, useUpdateRecord } from "../../api/reactQueryHooks/useRecords";
 import { useSchema } from "../../api/reactQueryHooks/useTables";
+import { useCurrentUser } from "../../auth/AuthContext";
 import { Page, PageHeader, Section } from "../../components/ui/Page";
 import { confirmDanger } from "../../components/ui/confirm";
 import { recordPath, tablePath, tableTitle } from "../../layout/nav";
 import { FieldInput } from "../../features/records/fields/FieldInput";
 import { FileInputArea } from "../../features/records/fields/FileInputArea";
 import { NoTableAccess, RecordNotFound } from "../../features/records/states";
+import { useLineItems } from "../../features/records/lineItems";
+import { LineItemsGrid } from "../../features/records/LineItemsGrid";
+import { useSavePreview } from "../../features/records/usePreview";
 import {
   columnLabel,
   FILE_TYPES,
   FULL_WIDTH_TYPES,
   httpStatus,
   isMissing,
+  newRecordValues,
+  SERVER_TYPES,
   recordTitle,
   type TableSchemaInfo,
 } from "../../features/records/schema";
@@ -35,6 +42,7 @@ export default function RecordFormPage() {
   const editing = Boolean(id);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useCurrentUser();
   const title = tableTitle(table);
   const listPath = tablePath(table);
 
@@ -44,6 +52,9 @@ export default function RecordFormPage() {
   const record = recordQuery.data;
   const create = useCreateRecord(table);
   const update = useUpdateRecord(table);
+  const queryClient = useQueryClient();
+  // an invoice's lines etc., edited here and saved with the record
+  const lineItems = useLineItems(table, editing ? id : undefined);
 
   const columns = useMemo(() => schema?.columns ?? [], [schema]);
   const fileColumns = useMemo(() => columns.filter((c) => FILE_TYPES.includes(c.type)), [columns]);
@@ -65,18 +76,24 @@ export default function RecordFormPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [initial, setInitial] = useState<Snapshot | null>(null);
   const [saving, setSaving] = useState(false);
+  const linesWhere = useRef<ReturnType<typeof lineItems.changes>["where"]>({});
   const saved = useRef(false);
 
   // initialise once the schema (and the record, when editing) are loaded
   useEffect(() => {
     if (!schema || initial || (editing && !record)) return;
     const prefill = (location.state as { prefill?: Values; departmentId?: string | null } | null) ?? {};
-    const source: Values = editing ? record! : (prefill.prefill ?? {});
+    // editing: the record; duplicating: the copy; new: defaults + ?column=value
+    const source: Values = editing
+      ? record!
+      : (prefill.prefill ?? newRecordValues(schema.columns, user, location.search));
 
     const nextValues: Values = {};
     const nextFiles: Record<string, string[]> = {};
     for (const column of schema.columns) {
       if (FILE_TYPES.includes(column.type)) nextFiles[column.name] = asUrls(source[column.name]);
+      // a copy gets its own number (formulas are worked out again anyway)
+      else if (SERVER_TYPES.includes(column.type) && !editing) continue;
       else if (source[column.name] !== undefined) nextValues[column.name] = source[column.name];
     }
     const options = schema.allowedDepartments ?? [];
@@ -89,6 +106,7 @@ export default function RecordFormPage() {
     setExistingFiles(nextFiles);
     setDepartmentId(nextDepartment);
     setInitial({ values: nextValues, departmentId: nextDepartment, files: nextFiles });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schema, record, editing, initial, location.state]);
 
   const dirty =
@@ -96,7 +114,19 @@ export default function RecordFormPage() {
     (JSON.stringify(values) !== JSON.stringify(initial!.values) ||
       departmentId !== initial!.departmentId ||
       JSON.stringify(existingFiles) !== JSON.stringify(initial!.files) ||
-      Object.values(pendingFiles).some((files) => files.length > 0));
+      Object.values(pendingFiles).some((files) => files.length > 0) ||
+      lineItems.dirty);
+
+  // formulas, totals and line amounts, worked out live by the server
+  const preview = useSavePreview({
+    table,
+    id: editing ? id : undefined,
+    columns,
+    values,
+    departmentId,
+    lineItems,
+    enabled: Boolean(initial) && Boolean(editing ? schema?.permissions?.edit : schema?.permissions?.create),
+  });
 
   // warn before closing the tab with unsaved changes
   useEffect(() => {
@@ -162,6 +192,8 @@ export default function RecordFormPage() {
     let stage: "upload" | "save" = "upload";
     try {
       const payload: Values = { ...values };
+      // auto-numbers and formulas come from the server
+      for (const column of columns) if (SERVER_TYPES.includes(column.type)) delete payload[column.name];
       for (const column of fileColumns) {
         let urls = existingFiles[column.name] ?? [];
         const pending = pendingFiles[column.name] ?? [];
@@ -172,22 +204,44 @@ export default function RecordFormPage() {
         payload[column.name] = column.type === "image" || column.type === "file" ? (urls[0] ?? null) : urls;
       }
       if (showDepartment || !editing) payload._departmentId = departmentId;
+      const lines = lineItems.changes();
+      if (lines.payload) payload._children = lines.payload;
+      linesWhere.current = lines.where;
 
       stage = "save";
       saved.current = true;
+      // after saving: the lines and the totals over them changed
+      const refreshLines = () => {
+        notifications.hide("line-errors");
+        if (!lines.payload) return;
+        void queryClient.invalidateQueries({ queryKey: ["lines"] });
+        void queryClient.invalidateQueries({ queryKey: ["related"] });
+      };
       if (editing) {
         await update.mutateAsync({ id: id!, data: payload });
+        refreshLines();
         navigate(recordPath(table, id!), { replace: true });
       } else {
         const res = await create.mutateAsync(payload);
+        refreshLines();
         navigate(recordPath(table, res.data.insertedId), { replace: true });
       }
     } catch (err) {
       saved.current = false;
       const fieldErrors = fieldErrorsOf(err);
       if (fieldErrors) {
-        setErrors(fieldErrors);
-        focusFirstError(fieldErrors);
+        // "lines.create.1.qty" belong to the line grid, the rest to the fields above
+        const own = Object.fromEntries(Object.entries(fieldErrors).filter(([k]) => !k.includes(".")));
+        if (lineItems.showErrors(fieldErrors, linesWhere.current) && !Object.keys(own).length) {
+          notifications.show({
+            id: "line-errors",
+            title: "Check the lines",
+            message: errorMessage(err).replace(/^Check the lines: /, ""),
+            color: "red",
+          });
+        }
+        setErrors(own);
+        focusFirstError(own);
       } else if (stage === "upload") {
         // save errors are notified by the mutation hooks
         notifications.show({ title: "Couldn't upload the files", message: errorMessage(err), color: "red" });
@@ -223,6 +277,7 @@ export default function RecordFormPage() {
   const heading = editing ? `Edit ${name}` : `New record in ${title}`;
   const ready = Boolean(schema && initial);
   const noPermission = schema && !(editing ? schema.permissions?.edit : schema.permissions?.create);
+
 
   const breadcrumbs = [
     { label: "Tables" },
@@ -321,7 +376,11 @@ export default function RecordFormPage() {
                       ) : (
                         <FieldInput
                           column={column}
-                          value={values[column.name]}
+                          value={
+                            (column.type === "formula" || column.type === "rollup") && preview.value(column.name) !== undefined
+                              ? preview.value(column.name)
+                              : values[column.name]
+                          }
                           onChange={(v) => setValue(column.name, v)}
                           error={errors[column.name]}
                         />
@@ -331,6 +390,12 @@ export default function RecordFormPage() {
                 </Grid>
               )}
             </Section>
+
+            {lineItems.groups.map((group) => (
+              <Section key={group.table} title={tableTitle(group.table)} padding={0}>
+                <LineItemsGrid group={group} items={lineItems} live={preview.lineValues(group.table, group.lines)} />
+              </Section>
+            ))}
 
             {/* sticky action bar */}
             <Paper

@@ -82,7 +82,8 @@ export function ChoiceOptionsEditor({
     for (const raw of labels) {
       const label = raw.trim();
       if (!label || next.some((o) => o.label.toLowerCase() === label.toLowerCase())) continue;
-      next.push({ label, color: nextColor(next) });
+      // an id from the start, so renames can be followed (e.g. by the default value)
+      next.push({ id: Math.random().toString(36).slice(2, 10), label, color: nextColor(next) });
     }
     onChange(next);
   };

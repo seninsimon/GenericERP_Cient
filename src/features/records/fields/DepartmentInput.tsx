@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { MultiSelect, Select } from "@mantine/core";
 
 import { useDepartmentOptions } from "../../../api/reactQueryHooks/useRecords";
-import { columnLabel, type RecordColumn } from "../schema";
+import type { RecordColumn } from "../schema";
+import { useLabelProps } from "./compact";
 
 // Picker for a "Department" column: the company's departments (a short list,
 // loaded once). A department that was deleted keeps showing as such.
@@ -30,13 +31,13 @@ export function DepartmentInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options, isLoading, ids.join(",")]);
 
+  const labelProps = useLabelProps(column);
   const common = {
     id,
-    label: columnLabel(column),
+    ...labelProps,
     data,
     searchable: true,
     clearable: true,
-    withAsterisk: Boolean(column.required),
     error,
     placeholder: isLoading ? "Loading…" : "Choose a department",
     nothingFoundMessage: "No department found",

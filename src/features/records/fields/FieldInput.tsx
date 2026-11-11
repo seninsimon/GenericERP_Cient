@@ -1,7 +1,9 @@
 import { ColorSwatch, Group, Input, MultiSelect, NumberInput, Select, Switch, Textarea, TextInput } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 
+import { formatDate, formatNumber } from "../../../lib/format";
 import { columnLabel, type RecordColumn } from "../schema";
+import { useLabelProps } from "./compact";
 import { RelationInput } from "./RelationInput";
 import { RichTextInput } from "./RichText";
 import { DepartmentInput } from "./DepartmentInput";
@@ -13,17 +15,20 @@ export function FieldInput({
   value,
   onChange,
   error,
+  id: idProp,
 }: {
   column: RecordColumn;
   value: unknown;
   onChange: (value: unknown) => void;
   error?: string;
+  // unique element id when the same column appears several times (line items)
+  id?: string;
 }) {
-  const id = `field-${column.name}`;
+  const id = idProp ?? `field-${column.name}`;
+  const labelProps = useLabelProps(column);
   const common = {
     id,
-    label: columnLabel(column),
-    withAsterisk: Boolean(column.required),
+    ...labelProps,
     error,
   };
 
@@ -61,9 +66,57 @@ export function FieldInput({
             checked={value === true}
             onChange={(e) => onChange(e.currentTarget.checked)}
             label={value === true ? "Yes" : "No"}
-            aria-label={common.label}
+            aria-label={columnLabel(column)}
           />
         </Input.Wrapper>
+      );
+
+    case "formula":
+    case "rollup": {
+      // worked out by the server: from the other fields, or the linked records
+      const kind = column.type === "formula" ? column.formula?.type : (column.rollup?.type ?? "number");
+      const shown =
+        value == null || value === ""
+          ? ""
+          : kind === "number"
+            ? formatNumber(value)
+            : kind === "date"
+              ? formatDate(value)
+              : kind === "boolean"
+                ? value === true
+                  ? "Yes"
+                  : "No"
+                : String(value);
+      return (
+        <TextInput
+          {...common}
+          withAsterisk={false}
+          value={shown}
+          placeholder="Worked out as you fill in the form"
+          description={
+            shown
+              ? column.type === "rollup"
+                ? "Added up from the linked records"
+                : "Worked out from the other fields"
+              : undefined
+          }
+          readOnly
+          variant="filled"
+        />
+      );
+    }
+
+    case "autonumber":
+      // given by the server when the record is created; never typed
+      return (
+        <TextInput
+          {...common}
+          withAsterisk={false}
+          value={typeof value === "string" ? value : ""}
+          placeholder="Given automatically when saved"
+          readOnly
+          variant="filled"
+        />
       );
 
     case "choice": {

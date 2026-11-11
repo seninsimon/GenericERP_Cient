@@ -24,6 +24,7 @@ const UsersPage = lazy(() => import("./pages/settings/UsersPage"));
 const RolesPage = lazy(() => import("./pages/settings/RolesPage"));
 const DepartmentsPage = lazy(() => import("./pages/settings/DepartmentsPage"));
 const AuditLogPage = lazy(() => import("./pages/settings/AuditLogPage"));
+const AppsPage = lazy(() => import("./pages/settings/AppsPage"));
 
 // Admin-only pages (the API enforces this too).
 function AdminOnly({ children }: { children: ReactNode }) {
@@ -65,6 +66,7 @@ export default function App() {
                   <Route path="settings/tables" element={<AdminOnly><TablesSettingsPage /></AdminOnly>} />
                   <Route path="settings/tables/:table" element={<AdminOnly><TableSettingsPage /></AdminOnly>} />
                   <Route path="settings/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
+                  <Route path="settings/apps" element={<AdminOnly><AppsPage /></AdminOnly>} />
                   <Route path="settings/roles" element={<AdminOnly><RolesPage /></AdminOnly>} />
                   <Route path="settings/departments" element={<AdminOnly><DepartmentsPage /></AdminOnly>} />
                   <Route path="settings/audit" element={<AdminOnly><AuditLogPage /></AdminOnly>} />

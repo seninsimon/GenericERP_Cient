@@ -15,6 +15,7 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import {
+  IconApps,
   IconArrowRight,
   IconBuilding,
   IconCircleCheck,
@@ -124,7 +125,7 @@ function GetStarted({ tableCount }: { tableCount: number }) {
 
   const steps = [
     { done: departments.length > 0, label: "Create departments", to: "/settings/departments", icon: IconBuilding },
-    { done: tableCount > 0, label: "Create a table and its columns", to: "/settings/tables", icon: IconDatabaseCog },
+    { done: tableCount > 0, label: "Add apps (or create your own tables)", to: "/settings/apps", icon: IconApps },
     { done: roles.some((r) => !r.isAdmin), label: "Create a role with table permissions", to: "/settings/roles", icon: IconShieldLock },
     { done: users.length > 1, label: "Add users and assign departments", to: "/settings/users", icon: IconUsers },
   ];
@@ -340,11 +341,16 @@ export default function HomePage() {
                 <EmptyState
                   icon={<IconDatabaseCog size={26} stroke={1.5} />}
                   title="No tables yet"
-                  description="Create your first table to start storing records."
+                  description="Pick your kind of organization to get ready-made, connected tables, or build your own."
                   action={
-                    <Button component={Link} to="/settings/tables" leftSection={<IconPlus size={16} />}>
-                      Create a table
-                    </Button>
+                    <Group gap="xs" justify="center">
+                      <Button component={Link} to="/settings/tables" variant="default" leftSection={<IconPlus size={16} />}>
+                        Create a table
+                      </Button>
+                      <Button component={Link} to="/settings/apps" leftSection={<IconApps size={16} />}>
+                        Pick your organization
+                      </Button>
+                    </Group>
                   }
                 />
               ) : (

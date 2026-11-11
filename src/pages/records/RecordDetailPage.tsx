@@ -26,6 +26,7 @@ import { editRecordPath, newRecordPath, tablePath, tableTitle } from "../../layo
 import { formatDateTime, formatRelative, isEmptyValue } from "../../lib/format";
 import { RichTextView } from "../../features/records/fields/RichText";
 import { RecordActivity } from "../../features/records/RecordActivity";
+import { RelatedRecords } from "../../features/records/RelatedRecords";
 import { RelationLinks } from "../../features/records/RelationLinks";
 import { UserNames } from "../../features/records/UserNames";
 import { DepartmentNames } from "../../features/records/DepartmentNames";
@@ -198,49 +199,53 @@ export default function RecordDetailPage() {
 
       <Grid gutter="lg" align="flex-start">
         <Grid.Col span={{ base: 12, lg: 8 }}>
-          <Section title="Details">
-            {loading ? (
-              <Grid gutter="lg">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Grid.Col key={i} span={{ base: 12, sm: 6 }}>
-                    <Stack gap={6}>
-                      <Skeleton h={10} w={80} />
-                      <Skeleton h={16} w="70%" />
-                    </Stack>
-                  </Grid.Col>
-                ))}
-              </Grid>
-            ) : (
-              // <dl> may only contain <div> groups of <dt>/<dd>, so this is a
-              // plain CSS grid rather than Mantine Grid (which adds a wrapper div)
-              <SimpleGrid component="dl" cols={{ base: 1, sm: 2 }} spacing="lg" verticalSpacing="lg" m={0}>
-                {columns.map((column) => (
-                  <Box
-                    key={column.name}
-                    style={{ gridColumn: FULL_WIDTH_TYPES.includes(column.type) ? "1 / -1" : undefined, minWidth: 0 }}
-                  >
-                    <Text component="dt" size="xs" c="dimmed" fw={500} mb={4}>
-                      {columnLabel(column)}
-                    </Text>
-                    <Box component="dd" m={0} style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                      <DetailValue
-                        column={column}
-                        value={record[column.name]}
-                        canOpenRef={Boolean(column.ref && readableTables.has(column.ref))}
-                      />
+          <Stack gap="lg">
+            <Section title="Details">
+              {loading ? (
+                <Grid gutter="lg">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Grid.Col key={i} span={{ base: 12, sm: 6 }}>
+                      <Stack gap={6}>
+                        <Skeleton h={10} w={80} />
+                        <Skeleton h={16} w="70%" />
+                      </Stack>
+                    </Grid.Col>
+                  ))}
+                </Grid>
+              ) : (
+                // <dl> may only contain <div> groups of <dt>/<dd>, so this is a
+                // plain CSS grid rather than Mantine Grid (which adds a wrapper div)
+                <SimpleGrid component="dl" cols={{ base: 1, sm: 2 }} spacing="lg" verticalSpacing="lg" m={0}>
+                  {columns.map((column) => (
+                    <Box
+                      key={column.name}
+                      style={{ gridColumn: FULL_WIDTH_TYPES.includes(column.type) ? "1 / -1" : undefined, minWidth: 0 }}
+                    >
+                      <Text component="dt" size="xs" c="dimmed" fw={500} mb={4}>
+                        {columnLabel(column)}
+                      </Text>
+                      <Box component="dd" m={0} style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                        <DetailValue
+                          column={column}
+                          value={record[column.name]}
+                          canOpenRef={Boolean(column.ref && readableTables.has(column.ref))}
+                        />
+                      </Box>
                     </Box>
-                  </Box>
-                ))}
-              </SimpleGrid>
-            )}
-            {createdAt && (
-              <Text size="xs" c="dimmed" mt="lg" pt="md" style={{ borderTop: "1px solid var(--app-border)" }}>
-                Created {formatDateTime(createdAt)}
-                {createdBy ? ` by ${createdBy}` : ""}
-                {updatedAt && updatedAt !== createdAt ? ` · Last updated ${formatDateTime(updatedAt)}` : ""}
-              </Text>
-            )}
-          </Section>
+                  ))}
+                </SimpleGrid>
+              )}
+              {createdAt && (
+                <Text size="xs" c="dimmed" mt="lg" pt="md" style={{ borderTop: "1px solid var(--app-border)" }}>
+                  Created {formatDateTime(createdAt)}
+                  {createdBy ? ` by ${createdBy}` : ""}
+                  {updatedAt && updatedAt !== createdAt ? ` · Last updated ${formatDateTime(updatedAt)}` : ""}
+                </Text>
+              )}
+  </Section>
+            {/* records elsewhere that link here: a project's tasks, a customer's orders */}
+            {!loading && <RelatedRecords table={table} recordId={id} recordName={name} />}
+          </Stack>
         </Grid.Col>
 
         {wide && (

@@ -22,6 +22,12 @@ export function confirmDanger({
     labels: { confirm: confirmLabel, cancel: "Cancel" },
     confirmProps: { color: "red" },
     cancelProps: { variant: "default" },
-    onConfirm: () => void onConfirm(),
+    // failures are shown by the mutation hooks (a notification); keep them
+    // out of the page's unhandled errors
+    onConfirm: () => {
+      Promise.resolve()
+        .then(onConfirm)
+        .catch((err) => console.warn("confirmed action failed:", err));
+    },
   });
 }

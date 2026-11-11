@@ -5,7 +5,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { getRelationOptions, type RelationOption } from "../../../api/api";
 import { useRelationNames } from "../../../api/reactQueryHooks/useRecords";
-import { columnLabel, type RecordColumn } from "../schema";
+import type { RecordColumn } from "../schema";
+import { useLabelProps } from "./compact";
 
 const SEARCH_LIMIT = 50;
 
@@ -62,9 +63,10 @@ export function RelationInput({
   }, [selected.data, selected.isLoading, results.data, ids.join(",")]);
 
   const loading = results.isFetching || selected.isFetching;
+  const labelProps = useLabelProps(column);
   const common = {
     id,
-    label: columnLabel(column),
+    ...labelProps,
     data,
     searchable: true,
     clearable: true,
@@ -77,7 +79,6 @@ export function RelationInput({
       : loading
         ? "Loading…"
         : "No matches",
-    withAsterisk: Boolean(column.required),
     error,
     rightSection: loading ? <Loader size={14} /> : undefined,
     placeholder: "Type to search",

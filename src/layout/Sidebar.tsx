@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   ActionIcon,
   Box,
@@ -124,11 +124,30 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
 
   const menuTables = useMemo(
     () =>
-      (tables as { tableName: string; showInMenu?: boolean }[])
+      (tables as { tableName: string; showInMenu?: boolean; group?: string | null }[])
         .filter((t) => t.showInMenu !== false)
         .filter((t) => !query || t.tableName.toLowerCase().includes(query.toLowerCase())),
     [tables, query]
   );
+
+  // tables an app made are grouped under it ("Company", "Projects", ...), your
+  // own tables under "Tables" (last). With only one group there are no headings.
+  const groups = useMemo(() => {
+    const order: string[] = [];
+    const byGroup = new Map<string, typeof menuTables>();
+    for (const t of menuTables) {
+      const name = t.group ?? "";
+      if (!byGroup.has(name)) {
+        byGroup.set(name, []);
+        if (name) order.push(name);
+      }
+      byGroup.get(name)!.push(t);
+    }
+    const sorted = [...order.filter((g) => g === "Company"), ...order.filter((g) => g !== "Company")];
+    if (byGroup.has("")) sorted.push("");
+    return sorted.map((name) => ({ name: name || "Tables", tables: byGroup.get(name)! }));
+  }, [menuTables]);
+  const grouped = groups.length > 1;
 
   const badges = useMemo(
     () => railBadges((tables as { tableName: string }[]).map((t) => tableTitle(t.tableName))),
@@ -196,7 +215,7 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
             <Item key={item.to} item={item} collapsed={collapsed} active={isActive(item.to)} onNavigate={onNavigate} />
           ))}
 
-          <SectionLabel collapsed={collapsed}>Tables</SectionLabel>
+          {!grouped && <SectionLabel collapsed={collapsed}>Tables</SectionLabel>}
           {!collapsed && tables.length >= SHOW_FILTER_FROM && (
             <TextInput
               size="xs"
@@ -205,21 +224,27 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
               value={query}
               onChange={(e) => setQuery(e.currentTarget.value)}
               mb={4}
+              mt={grouped ? "xs" : 0}
             />
           )}
           {isLoading
             ? Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} h={collapsed ? 40 : 32} w={collapsed ? 40 : undefined} radius="md" />
               ))
-            : menuTables.map((t) => (
-                <Item
-                  key={t.tableName}
-                  item={{ label: tableTitle(t.tableName), to: tablePath(t.tableName), icon: IconTable }}
-                  badge={badges.get(tableTitle(t.tableName))}
-                  collapsed={collapsed}
-                  active={isActive(tablePath(t.tableName))}
-                  onNavigate={onNavigate}
-                />
+            : groups.map((group) => (
+                <Fragment key={group.name}>
+                  {grouped && <SectionLabel collapsed={collapsed}>{group.name}</SectionLabel>}
+                  {group.tables.map((t) => (
+                    <Item
+                      key={t.tableName}
+                      item={{ label: tableTitle(t.tableName), to: tablePath(t.tableName), icon: IconTable }}
+                      badge={badges.get(tableTitle(t.tableName))}
+                      collapsed={collapsed}
+                      active={isActive(tablePath(t.tableName))}
+                      onNavigate={onNavigate}
+                    />
+                  ))}
+                </Fragment>
               ))}
           {!isLoading && !menuTables.length && !collapsed && (
             <Text size="xs" c="dimmed" px="sm" py={4}>
