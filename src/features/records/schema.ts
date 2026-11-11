@@ -8,6 +8,7 @@ export type ColumnType =
   | "date"
   | "boolean"
   | "relation"
+  | "user"
   | "image"
   | "images"
   | "file"

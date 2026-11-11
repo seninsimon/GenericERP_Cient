@@ -16,7 +16,7 @@ import {
 } from "@tabler/icons-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { errorMessage, getRelationOptions, startExport, type Job } from "../../api/api";
+import { errorMessage, getRelationOptions, getUserOptions, startExport, type Job } from "../../api/api";
 import { useDeleteRecord, useWatchJob } from "../../api/reactQueryHooks/useRecords";
 import { useBulkDelete, useSchema, useTableData } from "../../api/reactQueryHooks/useTables";
 import { useCurrentUser } from "../../auth/AuthContext";
@@ -52,8 +52,18 @@ const filterKind = (column: RecordColumn): FilterField["kind"] => {
   if (column.type === "number" || column.type === "date" || column.type === "boolean" || column.type === "relation") {
     return column.type;
   }
+  // people are picked like linked records
+  if (column.type === "user") return "relation";
   return FILE_TYPES.includes(column.type) ? "file" : "text";
 };
+
+// People for user filters, with "Me" first: the server reads "$me" as whoever
+// is looking, so a shared "Assigned to: Me" link shows each person their own.
+const loadPeople = (search: string) =>
+  getUserOptions({ search, limit: 20 })
+    .then((r) => r.data.map((o) => ({ value: o.value, label: o.label })))
+    .catch(() => [])
+    .then((people) => ("me".startsWith(search.trim().toLowerCase()) ? [{ value: "$me", label: "Me" }, ...people] : people));
 
 export default function RecordListPage() {
   const { table = "" } = useParams();
@@ -169,6 +179,18 @@ export default function RecordListPage() {
           ]
         : []),
       {
+        id: "_createdBy",
+        header: "Created by",
+        hiddenByDefault: true,
+        width: 150,
+        cell: (row) =>
+          row._createdBy ? (
+            <Text span inherit>
+              {String(row._createdBy)}
+            </Text>
+          ) : null,
+      },
+      {
         id: "_createdAt",
         header: "Created",
         sortable: true,
@@ -195,13 +217,16 @@ export default function RecordListPage() {
       label: columnLabel(column),
       kind: filterKind(column),
       loadOptions:
-        column.type === "relation" && column.ref
-          ? (search: string) =>
-              getRelationOptions(column.ref!, { search, limit: 20, displayField: column.displayField })
-                .then((r) => r.data)
-                .catch(() => [])
-          : undefined,
+        column.type === "user"
+          ? loadPeople
+          : column.type === "relation" && column.ref
+            ? (search: string) =>
+                getRelationOptions(column.ref!, { search, limit: 20, displayField: column.displayField })
+                  .then((r) => r.data)
+                  .catch(() => [])
+            : undefined,
     }));
+    fields.push({ name: "_createdBy", label: "Created by", kind: "relation", loadOptions: loadPeople });
     if (showDepartment) {
       fields.push({
         name: "_department",

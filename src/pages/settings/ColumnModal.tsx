@@ -180,7 +180,7 @@ export function ColumnModal({
           required: v.required,
           indexed: indexable && v.indexed,
           ref: v.type === "relation" ? v.ref : null,
-          multiple: v.type === "relation" ? v.multiple : false,
+          multiple: v.type === "relation" || v.type === "user" ? v.multiple : false,
         });
       }
       onClose();
@@ -189,10 +189,11 @@ export function ColumnModal({
     }
   });
 
-  // editing: a relation can't change type, and other columns can't become relations
-  // (the linked table is chosen when the column is created)
+  // editing: links and people store ids, so their type is fixed, and other
+  // columns can't become one (existing values couldn't be converted)
+  const fixedType = column?.type === "relation" || column?.type === "user";
   const editTypes = columnTypes
-    .filter((t) => (column?.type === "relation" ? t.value === "relation" : t.value !== "relation"))
+    .filter((t) => (fixedType ? t.value === column?.type : t.value !== "relation" && t.value !== "user"))
     .map((t) => ({ value: t.value, label: t.label }));
 
   const tableOptions = (tables as { tableName: string }[]).map((t) => ({
@@ -217,11 +218,13 @@ export function ColumnModal({
               value={form.values.type}
               onChange={(v) => v && setType(v)}
               allowDeselect={false}
-              disabled={column?.type === "relation"}
+              disabled={fixedType}
               description={
                 column?.type === "relation"
                   ? `Links to ${tableTitle(column.ref ?? "")}. Delete and re-add the column to link elsewhere.`
-                  : "Changing the type doesn't convert existing values."
+                  : column?.type === "user"
+                    ? "People columns keep their type. Delete and re-add the column to change it."
+                    : "Changing the type doesn't convert existing values."
               }
             />
           ) : (
@@ -279,6 +282,14 @@ export function ColumnModal({
                 {...form.getInputProps("multiple", { type: "checkbox" })}
               />
             </SimpleGrid>
+          )}
+
+          {form.values.type === "user" && !editing && (
+            <Switch
+              label="Allow several people"
+              description="e.g. reviewers or team members instead of one owner"
+              {...form.getInputProps("multiple", { type: "checkbox" })}
+            />
           )}
 
           <Stack gap="sm">

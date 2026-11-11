@@ -27,6 +27,7 @@ import { formatDateTime, formatRelative, isEmptyValue } from "../../lib/format";
 import { RichTextView } from "../../features/records/fields/RichText";
 import { RecordActivity } from "../../features/records/RecordActivity";
 import { RelationLinks } from "../../features/records/RelationLinks";
+import { UserNames } from "../../features/records/UserNames";
 import { NoTableAccess, RecordNotFound } from "../../features/records/states";
 import {
   columnLabel,
@@ -48,6 +49,7 @@ function DetailValue({
   canOpenRef: boolean;
 }) {
   if (column.type === "relation") return <RelationLinks column={column} value={value} canOpen={canOpenRef} />;
+  if (column.type === "user") return <UserNames value={value} />;
   if (column.type === "richtext") {
     return typeof value === "string" && !isEmptyValue(value.replace(/<[^>]*>/g, "").trim()) ? (
       <RichTextView html={value} />
@@ -111,6 +113,7 @@ export default function RecordDetailPage() {
 
   const updatedAt = record?._updatedAt as string | undefined;
   const createdAt = record?._createdAt as string | undefined;
+  const createdBy = record?._createdBy as string | null | undefined;
 
   const activity = schema && record && (
     <RecordActivity table={table} recordId={id} columns={columns} />
@@ -226,6 +229,7 @@ export default function RecordDetailPage() {
             {createdAt && (
               <Text size="xs" c="dimmed" mt="lg" pt="md" style={{ borderTop: "1px solid var(--app-border)" }}>
                 Created {formatDateTime(createdAt)}
+                {createdBy ? ` by ${createdBy}` : ""}
                 {updatedAt && updatedAt !== createdAt ? ` · Last updated ${formatDateTime(updatedAt)}` : ""}
               </Text>
             )}

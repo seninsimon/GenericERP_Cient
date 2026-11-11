@@ -60,7 +60,9 @@ export function FieldValue({
         </Text>
       );
 
-    case "relation": {
+    // names (lists resolve relations and users on the server)
+    case "relation":
+    case "user": {
       const items = (Array.isArray(value) ? value : [value]).map(String).filter(Boolean);
       if (table) {
         // plain text reads better than tiny truncated chips in a cell

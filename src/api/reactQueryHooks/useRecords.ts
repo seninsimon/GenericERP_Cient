@@ -81,6 +81,16 @@ export const useRelationNames = (
     retry: false,
   });
 
+// Names for user ids ("User" columns, "Created by").
+export const useUserNames = (ids: string[]) =>
+  useQuery({
+    queryKey: ["userOptions", "ids", [...ids].sort().join(",")],
+    queryFn: async () => (await api.getUserOptions({ ids })).data,
+    enabled: ids.length > 0,
+    staleTime: 60_000,
+    retry: false,
+  });
+
 // Follow a background job (import/export) until it finishes.
 export function useWatchJob(onFinished: (job: api.Job) => void) {
   const [jobId, setJobId] = useState<string | null>(null);

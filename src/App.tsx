@@ -59,6 +59,8 @@ export default function App() {
                   <Route path="table/:table/:id" element={<RecordDetailPage />} />
                   <Route path="table/:table/:id/edit" element={<RecordFormPage />} />
 
+                  {/* bookmarked /login after signing in: go home instead of "Page not found" */}
+                  <Route path="login" element={<Navigate to="/" replace />} />
                   <Route path="settings" element={<Navigate to="/settings/tables" replace />} />
                   <Route path="settings/tables" element={<AdminOnly><TablesSettingsPage /></AdminOnly>} />
                   <Route path="settings/tables/:table" element={<AdminOnly><TableSettingsPage /></AdminOnly>} />
