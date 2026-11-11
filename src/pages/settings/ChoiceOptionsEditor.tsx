@@ -5,6 +5,7 @@ import {
   ColorSwatch,
   Group,
   Input,
+  MultiSelect,
   Popover,
   SimpleGrid,
   Stack,
@@ -13,7 +14,9 @@ import {
   Tooltip,
   UnstyledButton,
 } from "@mantine/core";
-import { IconArrowDown, IconArrowUp, IconPlus, IconX } from "@tabler/icons-react";
+import { IconArrowDown, IconArrowUp, IconLock, IconLockOpen, IconPlus, IconX } from "@tabler/icons-react";
+
+import { useRoles } from "../../api/reactQueryHooks/useAdmin";
 
 import type { ChoiceOption } from "../../features/records/schema";
 
@@ -52,6 +55,41 @@ function ColorPicker({ value, onChange, label }: { value: string; onChange: (c: 
             </UnstyledButton>
           ))}
         </SimpleGrid>
+      </Popover.Dropdown>
+    </Popover>
+  );
+}
+
+// "Who can choose this": an approval step (e.g. only managers can set Approved)
+function WhoCanChoose({ label, value, onChange }: { label: string; value: string[]; onChange: (roles: string[]) => void }) {
+  const { data: roles = [] } = useRoles();
+  const [opened, setOpened] = useState(false);
+  const limited = value.length > 0;
+  return (
+    <Popover opened={opened} onChange={setOpened} position="bottom-end" width={280} shadow="md" withinPortal={false}>
+      <Popover.Target>
+        <Tooltip label={limited ? "Only some roles can choose it" : "Who can choose this"}>
+          <ActionIcon
+            variant={limited ? "light" : "subtle"}
+            color={limited ? undefined : "gray"}
+            aria-label={`Who can choose ${label || "this option"}`}
+            onClick={() => setOpened((o) => !o)}
+          >
+            {limited ? <IconLock size={16} /> : <IconLockOpen size={16} />}
+          </ActionIcon>
+        </Tooltip>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <MultiSelect
+          label={`Who can choose “${label || "this"}”`}
+          description="An approval step. Leave empty: anyone who can edit. Admins always can."
+          data={roles.filter((r) => !r.isAdmin).map((r) => ({ value: r._id, label: r.name }))}
+          value={value}
+          onChange={onChange}
+          placeholder={value.length ? undefined : "Anyone"}
+          comboboxProps={{ withinPortal: false }}
+          clearable
+        />
       </Popover.Dropdown>
     </Popover>
   );
@@ -148,6 +186,11 @@ export function ChoiceOptionsEditor({
                 <IconArrowDown size={16} />
               </ActionIcon>
             </Tooltip>
+            <WhoCanChoose
+              label={option.label}
+              value={option.roles ?? []}
+              onChange={(roles) => update(index, { roles: roles.length ? roles : undefined })}
+            />
             <Tooltip label="Remove">
               <ActionIcon
                 variant="subtle"

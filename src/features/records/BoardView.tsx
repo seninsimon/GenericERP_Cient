@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { ActionIcon, Badge, Box, ColorSwatch, Group, Menu, ScrollArea, Skeleton, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconArrowsMove, IconDots, IconPlus } from "@tabler/icons-react";
+import { IconArrowsMove, IconDots, IconLock, IconPlus } from "@tabler/icons-react";
+import { useCurrentUser } from "../../auth/AuthContext";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 
 import { errorMessage, getTableData, updateData, type ListFilter } from "../../api/api";
 import { FieldValue } from "../../components/ui/FieldValue";
 import { newRecordPath, recordPath } from "../../layout/nav";
-import { cardTitle, columnLabel, FILE_TYPES, primaryColumn, type RecordColumn, type RecordRow, type TableSchemaInfo } from "./schema";
+import { canChoose, cardTitle, columnLabel, FILE_TYPES, primaryColumn, type RecordColumn, type RecordRow, type TableSchemaInfo } from "./schema";
 
 const PER_LANE = 50;
 const EMPTY = "__empty__";
@@ -36,6 +37,12 @@ export function BoardView({
   const [moving, setMoving] = useState<string | null>(null);
 
   const lanes = [...(groupBy.options ?? []).map((o) => ({ key: o.label, label: o.label, color: o.color })), { key: EMPTY, label: "No value", color: "gray" }];
+  // approval steps: lanes this user may not move cards into
+  const { user } = useCurrentUser();
+  const allowed = (key: string) => {
+    const option = groupBy.options?.find((o) => o.label === key);
+    return !option || canChoose(option, user);
+  };
   const laneFilter = (key: string): ListFilter =>
     key === EMPTY ? { field: groupBy.name, op: "isEmpty" } : { field: groupBy.name, op: "in", value: [key] };
   const results = useQueries({
@@ -100,7 +107,7 @@ export function BoardView({
               bg={dragOver === lane.key ? "var(--mantine-primary-color-light)" : "var(--app-muted)"}
               style={{ borderRadius: "var(--mantine-radius-lg)", border: "1px solid var(--app-border)", transition: "background-color 120ms" }}
               onDragOver={(e) => {
-                if (!canEdit) return;
+                if (!canEdit || !allowed(lane.key)) return;
                 e.preventDefault();
                 setDragOver(lane.key);
               }}
@@ -178,7 +185,12 @@ export function BoardView({
                             {lanes
                               .filter((l) => l.key !== lane.key)
                               .map((l) => (
-                                <Menu.Item key={l.key} onClick={() => void move(row._id, l.key, lane.key)}>
+                                <Menu.Item
+                                  key={l.key}
+                                  onClick={() => void move(row._id, l.key, lane.key)}
+                                  disabled={!allowed(l.key)}
+                                  rightSection={allowed(l.key) ? undefined : <IconLock size={12} />}
+                                >
                                   {l.label}
                                 </Menu.Item>
                               ))}

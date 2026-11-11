@@ -39,6 +39,7 @@ import { useTables } from "../api/reactQueryHooks/useTables";
 import { useCurrentUser } from "../auth/AuthContext";
 import { JobStatusBadge, jobResultSummary } from "../components/JobStatusBadge";
 import { EmptyState } from "../components/ui/EmptyState";
+import { AppDashboards } from "../features/AppDashboards";
 import { Page, Section } from "../components/ui/Page";
 import { newRecordPath, tablePath, tableTitle } from "../layout/nav";
 import { formatDateTime, formatNumber, formatRelative } from "../lib/format";
@@ -313,6 +314,8 @@ export default function HomePage() {
 
       <Stack gap="xl">
         {isAdmin && !isLoading && <GetStarted tableCount={tables.length} />}
+        {/* the installed apps' counts: open tasks, overdue invoices, … */}
+        <AppDashboards />
 
         <Box>
           <Group justify="space-between" mb="sm">

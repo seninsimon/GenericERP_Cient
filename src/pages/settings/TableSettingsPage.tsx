@@ -1,3 +1,5 @@
+import { AutomationsSection } from "./AutomationsSection";
+import type { RecordColumn } from "../../features/records/schema";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -481,6 +483,7 @@ export default function TableSettingsPage() {
       <Stack gap="lg">
         <AccessSection schema={schema} />
         <ColumnsSection schema={schema} />
+        <AutomationsSection table={schema.tableName} columns={schema.columns as RecordColumn[]} />
         <Section danger title="Danger zone">
           <Group justify="space-between" wrap="wrap" gap="md">
             <div style={{ flex: "1 1 280px" }}>

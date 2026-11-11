@@ -14,6 +14,7 @@ import {
   Skeleton,
   Stack,
   Text,
+  Textarea,
   TextInput,
   ThemeIcon,
 } from "@mantine/core";
@@ -40,6 +41,7 @@ import {
   IconReceiptRefund,
   IconSchool,
   IconShoppingCart,
+  IconSparkles,
   IconStethoscope,
   IconTargetArrow,
   IconUsers,
@@ -50,6 +52,7 @@ import { useNavigate } from "react-router-dom";
 import { useDepartments } from "../../api/reactQueryHooks/useAdmin";
 import {
   useApps,
+  useDraftApp,
   useInstallApps,
   useInstallPlan,
   useRemoveSample,
@@ -80,6 +83,7 @@ const ICONS: Record<string, Icon> = {
   IconReceiptRefund,
   IconSchool,
   IconShoppingCart,
+  IconSparkles,
   IconStethoscope,
   IconTargetArrow,
   IconUsers,
@@ -95,7 +99,9 @@ function AppIcon({ name, size = 40 }: { name: string; size?: number }) {
 
 /* ---------------- install preview ---------------- */
 
-function InstallDrawer({ target, onClose }: { target: { title: string; apps: string[] } | null; onClose: () => void }) {
+type Target = { title: string; apps: string[]; draft?: unknown };
+
+function InstallDrawer({ target, onClose }: { target: Target | null; onClose: () => void }) {
   const navigate = useNavigate();
   const narrow = useMediaQuery("(max-width: 48em)");
   const { data: departments = [] } = useDepartments();
@@ -108,7 +114,7 @@ function InstallDrawer({ target, onClose }: { target: { title: string; apps: str
   // default: share with every department
   const shareWith = departmentIds ?? departments.map((d) => d._id);
   const options: InstallOptions = { tables, conflicts, departmentIds: shareWith, sampleData };
-  const { data: plan, isLoading, error } = useInstallPlan(target?.apps ?? null, { tables, conflicts });
+  const { data: plan, isLoading, error } = useInstallPlan(target?.apps ?? null, { tables, conflicts }, target?.draft);
 
   const reset = () => {
     setTables({});
@@ -127,7 +133,7 @@ function InstallDrawer({ target, onClose }: { target: { title: string; apps: str
 
   const submit = async () => {
     if (!target) return;
-    const result = await install.mutateAsync({ apps: target.apps, options });
+    const result = await install.mutateAsync({ apps: target.apps, options, draft: target.draft });
     notifications.show({
       title: `${target.title} added`,
       message: `${result.tables.map((t) => tableTitle(t.tableName)).join(", ")}${result.sampleRecords ? `, with ${result.sampleRecords} sample records` : ""}`,
@@ -336,7 +342,15 @@ function RemoveAppModal({ app, onClose }: { app: AppInfo | null; onClose: () => 
 
 export default function AppsPage() {
   const { data, isLoading } = useApps();
-  const [target, setTarget] = useState<{ title: string; apps: string[] } | null>(null);
+  const [target, setTarget] = useState<Target | null>(null);
+  const [description, setDescription] = useState("");
+  const draftApp = useDraftApp();
+  // failures are shown by the hook (a notification)
+  const draft = () =>
+    draftApp.mutateAsync(description.trim()).then(
+      (result) => setTarget({ title: result.app.name, apps: [], draft: result.draft }),
+      () => {}
+    );
   const [removing, setRemoving] = useState<AppInfo | null>(null);
   const removeSample = useRemoveSample();
 
@@ -393,6 +407,45 @@ export default function AppsPage() {
       ) : (
         <Stack gap="lg">
           {!installed.length && bundleSection}
+
+          <Section
+            title="Describe your organization"
+            description="Not in the list? Say what you do in a sentence or two, and AI drafts the tables. You'll see them before anything is added, and can change everything afterwards."
+          >
+            {data?.aiDrafts ? (
+              <Stack gap="sm">
+                <Textarea
+                  aria-label="Your organization"
+                  placeholder="e.g. We're a 12-person dental clinic with two branches. We book appointments, keep treatment notes and bill patients."
+                  autosize
+                  minRows={2}
+                  maxRows={5}
+                  maxLength={2000}
+                  value={description}
+                  onChange={(e) => setDescription(e.currentTarget.value)}
+                />
+                <Group>
+                  <Button
+                    leftSection={<IconSparkles size={16} />}
+                    onClick={draft}
+                    loading={draftApp.isPending}
+                    disabled={description.trim().length < 10}
+                  >
+                    Draft tables
+                  </Button>
+                  {draftApp.isPending && (
+                    <Text size="sm" c="dimmed">
+                      Drafting… this can take up to a minute.
+                    </Text>
+                  )}
+                </Group>
+              </Stack>
+            ) : (
+              <Text size="sm" c="dimmed">
+                To turn this on, add an Anthropic API key to the server's settings (<code>ANTHROPIC_API_KEY</code> in <code>.env</code>).
+              </Text>
+            )}
+          </Section>
 
           {available.length > 0 && (
             <Section title="Apps">

@@ -24,7 +24,13 @@ export interface ChoiceOption {
   id?: string;
   label: string;
   color: string;
+  // an approval step: only these roles may choose it (admins always may)
+  roles?: string[];
 }
+
+// May this user choose this option? (approval steps)
+export const canChoose = (option: ChoiceOption, user: { role: { _id: string; isAdmin: boolean } }) =>
+  !option.roles?.length || user.role.isAdmin || option.roles.includes(user.role._id);
 
 export type RollupConfig = {
   from: string;

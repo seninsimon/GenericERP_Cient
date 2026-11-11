@@ -1,8 +1,10 @@
-import { ColorSwatch, Group, Input, MultiSelect, NumberInput, Select, Switch, Textarea, TextInput } from "@mantine/core";
+import { ColorSwatch, Group, Input, MultiSelect, NumberInput, Select, Switch, Text, Textarea, TextInput } from "@mantine/core";
+import { IconLock } from "@tabler/icons-react";
 import { DateInput } from "@mantine/dates";
 
 import { formatDate, formatNumber } from "../../../lib/format";
-import { columnLabel, type RecordColumn } from "../schema";
+import { useCurrentUser } from "../../../auth/AuthContext";
+import { canChoose, columnLabel, type RecordColumn } from "../schema";
 import { useLabelProps } from "./compact";
 import { RelationInput } from "./RelationInput";
 import { RichTextInput } from "./RichText";
@@ -26,6 +28,7 @@ export function FieldInput({
 }) {
   const id = idProp ?? `field-${column.name}`;
   const labelProps = useLabelProps(column);
+  const { user } = useCurrentUser();
   const common = {
     id,
     ...labelProps,
@@ -123,15 +126,24 @@ export function FieldInput({
       // a value whose option was removed stays pickable on this record
       const current = ([] as unknown[]).concat(value ?? []).filter((v): v is string => typeof v === "string" && v !== "");
       const options = column.options ?? [];
+      // approval steps ("Approved") only for the roles that may choose them
       const data = [
-        ...options.map((o) => ({ value: o.label, label: o.label })),
+        ...options.map((o) => ({ value: o.label, label: o.label, disabled: !canChoose(o, user) && !current.includes(o.label) })),
         ...current.filter((v) => !options.some((o) => o.label === v)).map((v) => ({ value: v, label: `${v} (removed)` })),
       ];
       const colorOf = (label: string) => options.find((o) => o.label === label)?.color ?? "gray";
-      const renderOption = ({ option }: { option: { value: string; label: string } }) => (
+      const renderOption = ({ option }: { option: { value: string; label: string; disabled?: boolean } }) => (
         <Group gap={8} wrap="nowrap">
           <ColorSwatch color={`var(--mantine-color-${colorOf(option.value)}-filled)`} size={10} withShadow={false} />
           {option.label}
+          {option.disabled && (
+            <Group gap={2} wrap="nowrap" c="dimmed">
+              <IconLock size={12} />
+              <Text span size="xs">
+                needs approval
+              </Text>
+            </Group>
+          )}
         </Group>
       );
       return column.multiple ? (

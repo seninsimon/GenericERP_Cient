@@ -110,7 +110,7 @@ const isComplete = (field: FilterField, f: Filter) => {
 function describe(field: FilterField, f: Filter) {
   const op = opInfo(field.kind, f.op);
   const show = (v: unknown) =>
-    field.kind === "date" ? formatDate(v) : field.kind === "number" ? formatNumber(v) : String(v);
+    v === "$today" ? "today" : field.kind === "date" ? formatDate(v) : field.kind === "number" ? formatNumber(v) : String(v);
   let value = "";
   if (op.needs === 2) value = `${show(f.value)} and ${show(f.value2)}`;
   else if (op.needs === 1) value = Array.isArray(f.value) ? (f.labels ?? f.value).join(", ") : show(f.value);

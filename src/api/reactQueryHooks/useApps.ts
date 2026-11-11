@@ -55,15 +55,16 @@ export type InstallResult = {
 export const useApps = () =>
   useQuery({
     queryKey: ["apps"],
-    queryFn: async () => (await api.get<{ apps: AppInfo[]; bundles: BundleInfo[] }>("/apps")).data,
+    queryFn: async () => (await api.get<{ apps: AppInfo[]; bundles: BundleInfo[]; aiDrafts: boolean }>("/apps")).data,
   });
 
 // What installing would do; refreshed whenever the choices change.
-export const useInstallPlan = (apps: string[] | null, options: InstallOptions) =>
+// draft: an app drafted with AI (sent instead of app keys)
+export const useInstallPlan = (apps: string[] | null, options: InstallOptions, draft?: unknown) =>
   useQuery({
-    queryKey: ["appPlan", apps, options],
-    queryFn: async () => (await api.post<InstallPlan>("/apps/plan", { apps, options })).data,
-    enabled: Boolean(apps?.length),
+    queryKey: ["appPlan", apps, options, draft ?? null],
+    queryFn: async () => (await api.post<InstallPlan>("/apps/plan", { apps, options, draft })).data,
+    enabled: Boolean(apps?.length || draft),
     placeholderData: (previous) => previous,
   });
 
@@ -78,12 +79,21 @@ const fail = (title: string) => (error: unknown) =>
 export const useInstallApps = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { apps: string[]; options: InstallOptions }) =>
+    mutationFn: async (input: { apps: string[]; options: InstallOptions; draft?: unknown }) =>
       (await api.post<InstallResult>("/apps/install", input)).data,
     onSuccess: () => refreshAll(qc),
     onError: fail("Couldn't add the app"),
   });
 };
+
+// "Describe your organization": the AI drafts an app (nothing is created yet)
+export const useDraftApp = () =>
+  useMutation({
+    mutationFn: async (description: string) =>
+      (await api.post<{ draft: unknown; app: { key: string; name: string; description: string } }>("/apps/draft", { description }, { timeout: 180_000 }))
+        .data,
+    onError: fail("Couldn't draft the app"),
+  });
 
 export const useUninstallApp = () => {
   const qc = useQueryClient();
