@@ -132,15 +132,15 @@ function AccessSection({ schema }: { schema: Schema }) {
           <Alert
             color="yellow"
             icon={<IconInfoCircle size={16} />}
-            title={`${pluralize(unassigned, "record")} without a department`}
+            title={`${pluralize(unassigned, "record")} visible to admins only`}
           >
             <Text size="sm" mb="sm">
-              Only admins can see these. Move them all into one of this table's departments.
+              They aren't in any department yet. Move them all into one of this table's departments.
             </Text>
             {schema.departments.length ? (
               <Group gap="xs" align="flex-end" wrap="wrap">
                 <Select
-                  aria-label="Department for unassigned records"
+                  aria-label="Department for admins-only records"
                   placeholder="Choose a department"
                   data={schema.departments.map((d) => ({ value: d._id, label: d.name }))}
                   value={assignTo}
@@ -153,11 +153,11 @@ function AccessSection({ schema }: { schema: Schema }) {
                   loading={assigning}
                   onClick={() =>
                     confirmDanger({
-                      title: "Assign records",
-                      message: `Move ${pluralize(unassigned, "unassigned record")} into ${
+                      title: "Move records",
+                      message: `Move ${pluralize(unassigned, "admins-only record")} into ${
                         schema.departments.find((d) => d._id === assignTo)?.name
                       }?`,
-                      confirmLabel: "Assign records",
+                      confirmLabel: "Move records",
                       onConfirm: assign,
                     })
                   }

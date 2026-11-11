@@ -9,6 +9,7 @@ export type ColumnType =
   | "boolean"
   | "relation"
   | "user"
+  | "department"
   | "image"
   | "images"
   | "file"

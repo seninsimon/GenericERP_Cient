@@ -91,7 +91,7 @@ export default function DepartmentsPage() {
           <Text size="sm">Delete "{d.name}"?</Text>
           <Text size="sm" c="dimmed">
             {pluralize(d.userCount, "user")} and {pluralize(d.tableCount, "table")} lose this department. Its records
-            become <b>unassigned</b>, so only admins can see them until they're moved to another department.
+            become <b>admins only</b> until they're moved to another department (in each table's Access settings).
           </Text>
         </Stack>
       ),

@@ -180,7 +180,7 @@ export function ColumnModal({
           required: v.required,
           indexed: indexable && v.indexed,
           ref: v.type === "relation" ? v.ref : null,
-          multiple: v.type === "relation" || v.type === "user" ? v.multiple : false,
+          multiple: ["relation", "user", "department"].includes(v.type) ? v.multiple : false,
         });
       }
       onClose();
@@ -191,9 +191,10 @@ export function ColumnModal({
 
   // editing: links and people store ids, so their type is fixed, and other
   // columns can't become one (existing values couldn't be converted)
-  const fixedType = column?.type === "relation" || column?.type === "user";
+  const ID_TYPES = ["relation", "user", "department"];
+  const fixedType = ID_TYPES.includes(column?.type ?? "");
   const editTypes = columnTypes
-    .filter((t) => (fixedType ? t.value === column?.type : t.value !== "relation" && t.value !== "user"))
+    .filter((t) => (fixedType ? t.value === column?.type : !ID_TYPES.includes(t.value)))
     .map((t) => ({ value: t.value, label: t.label }));
 
   const tableOptions = (tables as { tableName: string }[]).map((t) => ({
@@ -222,8 +223,8 @@ export function ColumnModal({
               description={
                 column?.type === "relation"
                   ? `Links to ${tableTitle(column.ref ?? "")}. Delete and re-add the column to link elsewhere.`
-                  : column?.type === "user"
-                    ? "People columns keep their type. Delete and re-add the column to change it."
+                  : fixedType
+                    ? `${columnTypeInfo(column!.type).label} columns keep their type. Delete and re-add the column to change it.`
                     : "Changing the type doesn't convert existing values."
               }
             />
@@ -284,10 +285,14 @@ export function ColumnModal({
             </SimpleGrid>
           )}
 
-          {form.values.type === "user" && !editing && (
+          {(form.values.type === "user" || form.values.type === "department") && !editing && (
             <Switch
-              label="Allow several people"
-              description="e.g. reviewers or team members instead of one owner"
+              label={form.values.type === "user" ? "Allow several people" : "Allow several departments"}
+              description={
+                form.values.type === "user"
+                  ? "e.g. reviewers or team members instead of one owner"
+                  : "e.g. the teams a project involves"
+              }
               {...form.getInputProps("multiple", { type: "checkbox" })}
             />
           )}

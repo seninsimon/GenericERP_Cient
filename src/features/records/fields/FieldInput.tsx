@@ -4,6 +4,7 @@ import { DateInput } from "@mantine/dates";
 import { columnLabel, type RecordColumn } from "../schema";
 import { RelationInput } from "./RelationInput";
 import { RichTextInput } from "./RichText";
+import { DepartmentInput } from "./DepartmentInput";
 import { UserInput } from "./UserInput";
 
 // Input for one column (all types except files/images, see FileInputArea).
@@ -67,6 +68,9 @@ export function FieldInput({
 
     case "relation":
       return <RelationInput id={id} column={column} value={value} onChange={onChange} error={error} />;
+
+    case "department":
+      return <DepartmentInput id={id} column={column} value={value} onChange={onChange} error={error} />;
 
     case "user":
       return <UserInput id={id} column={column} value={value} onChange={onChange} error={error} />;

@@ -1,5 +1,6 @@
 import {
   IconAlignLeft,
+  IconBuilding,
   IconCalendar,
   IconFile,
   IconFiles,
@@ -33,6 +34,7 @@ export const columnTypes: ColumnTypeInfo[] = [
   { value: "richtext", label: "Rich text", description: "Formatted text with headings and lists", icon: IconTextSize, group: "Content" },
   { value: "relation", label: "Link to table", description: "Points to records in another table", icon: IconLink, group: "Links & media" },
   { value: "user", label: "User", description: "A person with a login: owner, assignee, approver", icon: IconUser, group: "Links & media" },
+  { value: "department", label: "Department", description: "One of your departments: team, cost centre", icon: IconBuilding, group: "Links & media" },
   { value: "image", label: "Image", description: "One picture", icon: IconPhoto, group: "Links & media" },
   { value: "images", label: "Images", description: "A gallery of pictures", icon: IconLibraryPhoto, group: "Links & media" },
   { value: "file", label: "File", description: "One attachment", icon: IconFile, group: "Links & media" },

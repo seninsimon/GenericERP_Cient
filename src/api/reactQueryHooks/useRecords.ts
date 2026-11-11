@@ -91,6 +91,14 @@ export const useUserNames = (ids: string[]) =>
     retry: false,
   });
 
+// All departments as { value, label } ("Department" columns, filters).
+export const useDepartmentOptions = () =>
+  useQuery({
+    queryKey: ["departmentOptions"],
+    queryFn: async () => (await api.getDepartmentOptions()).data,
+    staleTime: 5 * 60_000,
+  });
+
 // Follow a background job (import/export) until it finishes.
 export function useWatchJob(onFinished: (job: api.Job) => void) {
   const [jobId, setJobId] = useState<string | null>(null);

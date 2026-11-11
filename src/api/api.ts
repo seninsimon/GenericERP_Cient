@@ -136,6 +136,9 @@ export const getUserOptions = (opts: { search?: string; limit?: number; ids?: st
   return api.get<UserOption[]>("/users/options", { params });
 };
 
+// Every department, for "Department" columns and filters (any logged-in user; names only).
+export const getDepartmentOptions = () => api.get<{ value: string; label: string }[]>("/departments/options");
+
 export const getSingleData = (table: string, id: string) =>
   api.get(`/table/${table}/${id}`);
 

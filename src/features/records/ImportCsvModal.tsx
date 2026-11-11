@@ -15,7 +15,6 @@ export function ImportCsvModal({
   table,
   title,
   schema,
-  isAdmin,
   onStarted,
 }: {
   opened: boolean;
@@ -23,7 +22,6 @@ export function ImportCsvModal({
   table: string;
   title: string;
   schema: TableSchemaInfo;
-  isAdmin: boolean;
   onStarted: (job: Job) => void;
 }) {
   const fullScreen = useMediaQuery("(max-width: 36em)");
@@ -34,7 +32,7 @@ export function ImportCsvModal({
 
   const departments = (schema.allowedDepartments ?? []).map((d) => ({ value: d._id, label: d.name }));
   const showDepartment = departments.length > 1;
-  const departmentRequired = showDepartment && !isAdmin;
+  const departmentRequired = showDepartment;
 
   const close = () => {
     setFile(null);
@@ -47,7 +45,7 @@ export function ImportCsvModal({
     setError(null);
     if (!file) return setError("Choose a CSV file.");
     if (file.size > MAX_SIZE) return setError("The file is larger than 20 MB. Split it into smaller files.");
-    if (departmentRequired && !departmentId) return setError("Choose a department for the imported records.");
+    if (departmentRequired && !departmentId) return setError("Choose who can see the imported records.");
 
     setSubmitting(true);
     try {
@@ -79,23 +77,24 @@ export function ImportCsvModal({
 
         {showDepartment && (
           <Select
-            label="Department"
-            description="Used for rows without a Department column"
-            placeholder={isAdmin ? "Unassigned (admins only)" : "Choose a department"}
+            label="Visible to"
+            description="Which department can see the imported records (rows with a “Visible to” column use that)"
+            placeholder="Choose a department"
             data={departments}
             value={departmentId}
             onChange={setDepartmentId}
-            clearable={isAdmin}
-            withAsterisk={departmentRequired}
+            withAsterisk
           />
         )}
 
         <Alert variant="light" color="gray" icon={<IconInfoCircle size={16} />} title="File format">
           <List size="xs" spacing={2}>
             <List.Item>First row: column labels (or names), the same as an export.</List.Item>
-            <List.Item>
-              Optional <b>Department</b> column with the department name.
-            </List.Item>
+            {showDepartment && (
+              <List.Item>
+                Optional <b>Visible to</b> column with a department name.
+              </List.Item>
+            )}
             <List.Item>Linked records: their display name (or id).</List.Item>
             <List.Item>Several values (multiple links, images, files): separate with “;”.</List.Item>
             <List.Item>Yes/no fields: true/false, yes/no or 1/0.</List.Item>

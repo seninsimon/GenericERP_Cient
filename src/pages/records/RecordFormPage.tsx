@@ -8,7 +8,6 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { errorMessage, uploadFiles } from "../../api/api";
 import { fieldErrorsOf, useCreateRecord, useRecord, useUpdateRecord } from "../../api/reactQueryHooks/useRecords";
 import { useSchema } from "../../api/reactQueryHooks/useTables";
-import { useCurrentUser } from "../../auth/AuthContext";
 import { Page, PageHeader, Section } from "../../components/ui/Page";
 import { confirmDanger } from "../../components/ui/confirm";
 import { recordPath, tablePath, tableTitle } from "../../layout/nav";
@@ -36,7 +35,6 @@ export default function RecordFormPage() {
   const editing = Boolean(id);
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAdmin } = useCurrentUser();
   const title = tableTitle(table);
   const listPath = tablePath(table);
 
@@ -55,8 +53,9 @@ export default function RecordFormPage() {
     () => (schema?.allowedDepartments ?? []).map((d) => ({ value: d._id, label: d.name })),
     [schema]
   );
-  // non-admins with a single department don't need to choose; admins always see it
-  const showDepartment = isAdmin ? departmentOptions.length > 0 : departmentOptions.length > 1;
+  // "Visible to" is only asked when there's a real choice: with one department
+  // the record goes there automatically, with none it's admins-only
+  const showDepartment = departmentOptions.length > 1;
 
   /* ---------- form state ---------- */
   const [values, setValues] = useState<Values>({});
@@ -151,7 +150,7 @@ export default function RecordFormPage() {
         : values[column.name];
       if (column.required && isMissing(column, value)) missing[column.name] = `${columnLabel(column)} is required`;
     }
-    if (showDepartment && !isAdmin && !departmentId) missing._departmentId = "Choose a department";
+    if (showDepartment && !departmentId) missing._departmentId = "Choose who can see this record";
     if (Object.keys(missing).length) {
       setErrors(missing);
       focusFirstError(missing);
@@ -267,17 +266,16 @@ export default function RecordFormPage() {
                     <Grid.Col span={{ base: 12, md: 6 }}>
                       <Select
                         id="field-_departmentId"
-                        label="Department"
-                        description="Who can see this record"
-                        placeholder={isAdmin ? "Unassigned (admins only)" : "Choose a department"}
+                        label="Visible to"
+                        description="Which department can see this record"
+                        placeholder="Choose a department"
                         data={departmentOptions}
                         value={departmentId}
                         onChange={(v) => {
                           setDepartmentId(v);
                           clearError("_departmentId");
                         }}
-                        clearable={isAdmin}
-                        withAsterisk={!isAdmin}
+                        withAsterisk
                         error={errors._departmentId}
                       />
                     </Grid.Col>

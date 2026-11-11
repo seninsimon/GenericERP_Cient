@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ActionIcon, Anchor, Badge, Button, Group, Menu, Skeleton, Text } from "@mantine/core";
+import { ActionIcon, Alert, Anchor, Badge, Button, Group, Menu, Skeleton, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,6 +8,7 @@ import {
   IconDownload,
   IconEye,
   IconFilterOff,
+  IconLock,
   IconPencil,
   IconPlus,
   IconTable,
@@ -16,7 +17,7 @@ import {
 } from "@tabler/icons-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { errorMessage, getRelationOptions, getUserOptions, startExport, type Job } from "../../api/api";
+import { errorMessage, getDepartmentOptions, getRelationOptions, getUserOptions, startExport, type Job } from "../../api/api";
 import { useDeleteRecord, useWatchJob } from "../../api/reactQueryHooks/useRecords";
 import { useBulkDelete, useSchema, useTableData } from "../../api/reactQueryHooks/useTables";
 import { useCurrentUser } from "../../auth/AuthContext";
@@ -52,10 +53,20 @@ const filterKind = (column: RecordColumn): FilterField["kind"] => {
   if (column.type === "number" || column.type === "date" || column.type === "boolean" || column.type === "relation") {
     return column.type;
   }
-  // people are picked like linked records
-  if (column.type === "user") return "relation";
+  // people and departments are picked like linked records
+  if (column.type === "user" || column.type === "department") return "relation";
   return FILE_TYPES.includes(column.type) ? "file" : "text";
 };
+
+// Departments for department-column filters, with "My departments" first
+// (the server reads "$mine" as the departments of whoever is looking).
+const loadDepartments = (search: string) =>
+  getDepartmentOptions()
+    .then((r) => r.data.filter((o) => o.label.toLowerCase().includes(search.trim().toLowerCase())))
+    .catch(() => [])
+    .then((found) =>
+      "my departments".includes(search.trim().toLowerCase()) ? [{ value: "$mine", label: "My departments" }, ...found] : found
+    );
 
 // People for user filters, with "Me" first: the server reads "$me" as whoever
 // is looking, so a shared "Assigned to: Me" link shows each person their own.
@@ -135,7 +146,13 @@ export default function RecordListPage() {
   };
 
   /* ---------- columns & filters ---------- */
-  const showDepartment = Boolean(schema) && (isAdmin || (schema?.allowedDepartments?.length ?? 0) > 1);
+  // "Visible to": only when the table is shared with several departments and
+  // you can see more than one; admins also while some records are admins-only
+  const showDepartment =
+    Boolean(schema) &&
+    (((schema?.departments?.length ?? 0) > 1 && (isAdmin || (schema?.allowedDepartments?.length ?? 0) > 1)) ||
+      (isAdmin && (schema?.unassignedCount ?? 0) > 0));
+  const sharedWithNobody = Boolean(schema) && isAdmin && (schema?.departments?.length ?? 0) === 0;
 
   const columns = useMemo<DataTableColumn<RecordRow>[]>(() => {
     if (!schema) return [];
@@ -166,7 +183,7 @@ export default function RecordListPage() {
         ? [
             {
               id: "_department",
-              header: "Department",
+              header: "Visible to",
               width: 120,
               mobile: "subtitle" as const,
               cell: (row: RecordRow) =>
@@ -219,7 +236,9 @@ export default function RecordListPage() {
       loadOptions:
         column.type === "user"
           ? loadPeople
-          : column.type === "relation" && column.ref
+          : column.type === "department"
+            ? loadDepartments
+            : column.type === "relation" && column.ref
             ? (search: string) =>
                 getRelationOptions(column.ref!, { search, limit: 20, displayField: column.displayField })
                   .then((r) => r.data)
@@ -230,7 +249,7 @@ export default function RecordListPage() {
     if (showDepartment) {
       fields.push({
         name: "_department",
-        label: "Department",
+        label: "Visible to",
         kind: "department",
         options: (schema.allowedDepartments ?? []).map((d) => ({ value: d._id, label: d.name })),
       });
@@ -325,6 +344,17 @@ export default function RecordListPage() {
           )
         }
       />
+
+      {sharedWithNobody && (
+        <Alert variant="light" color="yellow" icon={<IconLock size={16} />} mb="md" p="sm">
+          <Text size="sm">
+            Only admins can see this table's records: it isn't shared with any department yet.{" "}
+            <Anchor component={Link} to={`/settings/tables/${encodeURIComponent(table)}`} size="sm" fw={500}>
+              Share it in Access settings
+            </Anchor>
+          </Text>
+        </Alert>
+      )}
 
       <DataTable<RecordRow>
         label={title}
@@ -442,7 +472,6 @@ export default function RecordListPage() {
           table={table}
           title={title}
           schema={schema}
-          isAdmin={isAdmin}
           onStarted={(job) => {
             watch(job._id);
             notifications.show({
