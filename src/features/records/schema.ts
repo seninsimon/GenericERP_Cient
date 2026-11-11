@@ -10,10 +10,18 @@ export type ColumnType =
   | "relation"
   | "user"
   | "department"
+  | "choice"
   | "image"
   | "images"
   | "file"
   | "files";
+
+// An option of a "choice" column. Records store the label.
+export interface ChoiceOption {
+  id?: string;
+  label: string;
+  color: string;
+}
 
 export interface RecordColumn {
   _id?: string;
@@ -26,6 +34,7 @@ export interface RecordColumn {
   ref?: string | null;
   multiple?: boolean;
   displayField?: string;
+  options?: ChoiceOption[];
 }
 
 export interface Department {
@@ -47,6 +56,13 @@ export type RecordRow = Record<string, unknown> & { _id: string };
 
 // the server can sort these types (typed sort expression / index)
 export const SORTABLE_TYPES = ["text", "textarea", "number", "date", "boolean"];
+// ...and single choices, in their options' order
+export const isSortable = (column: RecordColumn) =>
+  SORTABLE_TYPES.includes(column.type) || (column.type === "choice" && !column.multiple);
+
+// The colour of a choice value; grey for values whose option was removed.
+export const choiceOption = (column: { options?: ChoiceOption[] }, label: string) =>
+  column.options?.find((o) => o.label === label);
 // these take the whole row in forms and detail views
 export const FULL_WIDTH_TYPES = ["textarea", "richtext", "images", "files"];
 export const FILE_TYPES = ["image", "images", "file", "files"];

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  Badge,
   Button,
   Group,
   Modal,
@@ -19,7 +18,9 @@ import { useMediaQuery } from "@mantine/hooks";
 import { errorMessage } from "../../api/api";
 import { useAddColumn, useTables, useUpdateColumn } from "../../api/reactQueryHooks/useTables";
 import { tableTitle } from "../../layout/nav";
-import { columnTypeInfo, columnTypes, INDEXABLE_TYPES, INDEXED_HELP, slugify } from "./columnTypes";
+import type { ChoiceOption } from "../../features/records/schema";
+import { ChoiceOptionsEditor } from "./ChoiceOptionsEditor";
+import { columnTypeInfo, columnTypes, INDEXABLE_TYPES, INDEXED_HELP, optionsError, slugify } from "./columnTypes";
 import classes from "./settings.module.css";
 
 export type SchemaColumn = {
@@ -32,6 +33,7 @@ export type SchemaColumn = {
   indexed?: boolean;
   ref?: string | null;
   multiple?: boolean;
+  options?: ChoiceOption[];
 };
 
 const COLUMN_NAME = /^[a-zA-Z0-9_][a-zA-Z0-9_ -]{0,62}$/;
@@ -45,6 +47,7 @@ type Values = {
   showInTable: boolean;
   ref: string | null;
   multiple: boolean;
+  options: ChoiceOption[];
 };
 
 const NEW_COLUMN: Values = {
@@ -56,7 +59,11 @@ const NEW_COLUMN: Values = {
   showInTable: true,
   ref: null,
   multiple: false,
+  options: [],
 };
+
+// Text columns become a Choice using the values already in them
+const TEXT_TYPES = ["text", "textarea"];
 
 // Type picker: icon + name + one-line description per column type.
 function TypePicker({ value, onChange }: { value: string; onChange: (type: string) => void }) {
@@ -130,6 +137,7 @@ export function ColumnModal({
                 ? "A column with this name already exists"
                 : null,
       ref: (v, values) => (!editing && values.type === "relation" && !v ? "Choose the table to link to" : null),
+      options: (v, values) => (values.type === "choice" && !convertingToChoice(values.type) ? optionsError(v) : null),
     },
   });
 
@@ -147,6 +155,7 @@ export function ColumnModal({
             showInTable: column.showInTable !== false,
             ref: column.ref ?? null,
             multiple: Boolean(column.multiple),
+            options: column.options ?? [],
           }
         : NEW_COLUMN
     );
@@ -156,6 +165,10 @@ export function ColumnModal({
   }, [opened, column]);
 
   const indexable = INDEXABLE_TYPES.includes(form.values.type);
+  // editing a Text column into a Choice: the options come from its values
+  function convertingToChoice(type: string) {
+    return editing && type === "choice" && column?.type !== "choice";
+  }
   const setType = (type: string) => {
     form.setFieldValue("type", type);
     if (!INDEXABLE_TYPES.includes(type)) form.setFieldValue("indexed", false);
@@ -170,6 +183,7 @@ export function ColumnModal({
           showInTable: v.showInTable,
           required: v.required,
           indexed: indexable && v.indexed,
+          ...(v.type === "choice" && column?.type === "choice" ? { options: v.options } : {}),
         });
       } else {
         await add.mutateAsync({
@@ -180,7 +194,8 @@ export function ColumnModal({
           required: v.required,
           indexed: indexable && v.indexed,
           ref: v.type === "relation" ? v.ref : null,
-          multiple: ["relation", "user", "department"].includes(v.type) ? v.multiple : false,
+          multiple: ["relation", "user", "department", "choice"].includes(v.type) ? v.multiple : false,
+          ...(v.type === "choice" ? { options: v.options } : {}),
         });
       }
       onClose();
@@ -193,9 +208,24 @@ export function ColumnModal({
   // columns can't become one (existing values couldn't be converted)
   const ID_TYPES = ["relation", "user", "department"];
   const fixedType = ID_TYPES.includes(column?.type ?? "");
-  const editTypes = columnTypes
-    .filter((t) => (fixedType ? t.value === column?.type : !ID_TYPES.includes(t.value)))
-    .map((t) => ({ value: t.value, label: t.label }));
+  // Choice <-> Text only (their values are plain text)
+  const allowedEditType = (type: string) => {
+    if (fixedType) return type === column?.type;
+    if (ID_TYPES.includes(type)) return false;
+    if (column?.type === "choice") return type === "choice" || TEXT_TYPES.includes(type);
+    return type !== "choice" || TEXT_TYPES.includes(column?.type ?? "");
+  };
+  const editTypes = columnTypes.filter((t) => allowedEditType(t.value)).map((t) => ({ value: t.value, label: t.label }));
+  const typeHelp = () => {
+    if (column?.type === "relation") return `Links to ${tableTitle(column.ref ?? "")}. Delete and re-add the column to link elsewhere.`;
+    if (fixedType) return `${columnTypeInfo(column!.type).label} columns keep their type. Delete and re-add the column to change it.`;
+    if (convertingToChoice(form.values.type)) {
+      return "The options are made from the values already in this column. You can rename, recolour or remove them afterwards.";
+    }
+    if (column?.type === "choice" && form.values.type !== "choice") return "Each record keeps its choice as text.";
+    if (column?.type === "choice") return "Can be changed to Text.";
+    return "Changing the type doesn't convert existing values.";
+  };
 
   const tableOptions = (tables as { tableName: string }[]).map((t) => ({
     value: t.tableName,
@@ -220,13 +250,7 @@ export function ColumnModal({
               onChange={(v) => v && setType(v)}
               allowDeselect={false}
               disabled={fixedType}
-              description={
-                column?.type === "relation"
-                  ? `Links to ${tableTitle(column.ref ?? "")}. Delete and re-add the column to link elsewhere.`
-                  : fixedType
-                    ? `${columnTypeInfo(column!.type).label} columns keep their type. Delete and re-add the column to change it.`
-                    : "Changing the type doesn't convert existing values."
-              }
+              description={typeHelp()}
             />
           ) : (
             <Stack gap={6}>
@@ -297,6 +321,23 @@ export function ColumnModal({
             />
           )}
 
+          {form.values.type === "choice" && !convertingToChoice(form.values.type) && (
+            <ChoiceOptionsEditor
+              value={form.values.options}
+              onChange={(options) => form.setFieldValue("options", options)}
+              error={form.errors.options as string | undefined}
+              editing={editing}
+            />
+          )}
+
+          {form.values.type === "choice" && !editing && (
+            <Switch
+              label="Allow several choices"
+              description="e.g. tags or skills instead of one status"
+              {...form.getInputProps("multiple", { type: "checkbox" })}
+            />
+          )}
+
           <Stack gap="sm">
             <Switch
               label="Required"
@@ -308,17 +349,14 @@ export function ColumnModal({
               description="Users can still show or hide it from the table's view options"
               {...form.getInputProps("showInTable", { type: "checkbox" })}
             />
-            <Switch
-              label={
-                <Group gap={6}>
-                  Indexed for fast sorting
-                  {!indexable && <Badge size="xs" color="gray">Not available for {columnTypeInfo(form.values.type).label}</Badge>}
-                </Group>
-              }
-              description={INDEXED_HELP}
-              disabled={!indexable}
-              {...form.getInputProps("indexed", { type: "checkbox" })}
-            />
+            {/* only shown where it applies: fewer switches to read */}
+            {indexable && (
+              <Switch
+                label="Indexed for fast sorting"
+                description={INDEXED_HELP}
+                {...form.getInputProps("indexed", { type: "checkbox" })}
+              />
+            )}
           </Stack>
 
           <Group justify="flex-end" gap="xs" mt="xs">

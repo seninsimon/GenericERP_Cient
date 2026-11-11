@@ -12,7 +12,13 @@ import {
 // Renders any record value by its column type, the same way everywhere.
 // `variant="table"` = compact single line, `variant="detail"` = full value.
 
-export type ColumnLike = { name: string; type: string; label?: string; multiple?: boolean };
+export type ColumnLike = {
+  name: string;
+  type: string;
+  label?: string;
+  multiple?: boolean;
+  options?: { label: string; color: string }[];
+};
 
 export const EMPTY = (
   <Text span c="dimmed" aria-label="empty">
@@ -87,6 +93,30 @@ export function FieldValue({
               {item}
             </Badge>
           ))}
+        </Group>
+      );
+    }
+
+    case "choice": {
+      const items = (Array.isArray(value) ? value : [value]).map(String).filter(Boolean);
+      const shown = table ? items.slice(0, 3) : items;
+      return (
+        <Group gap={4} wrap={table ? "nowrap" : "wrap"}>
+          {shown.map((item, i) => {
+            const option = column.options?.find((o) => o.label === item);
+            return (
+              <Tooltip key={`${item}-${i}`} label="This option was removed" disabled={Boolean(option)}>
+                <Badge color={option?.color ?? "gray"} variant="light" maw={220}>
+                  {item}
+                </Badge>
+              </Tooltip>
+            );
+          })}
+          {items.length > shown.length && (
+            <Text span size="xs" c="dimmed">
+              +{items.length - shown.length}
+            </Text>
+          )}
         </Group>
       );
     }

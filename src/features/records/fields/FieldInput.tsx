@@ -1,4 +1,4 @@
-import { Input, NumberInput, Switch, Textarea, TextInput } from "@mantine/core";
+import { ColorSwatch, Group, Input, MultiSelect, NumberInput, Select, Switch, Textarea, TextInput } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 
 import { columnLabel, type RecordColumn } from "../schema";
@@ -65,6 +65,51 @@ export function FieldInput({
           />
         </Input.Wrapper>
       );
+
+    case "choice": {
+      // a value whose option was removed stays pickable on this record
+      const current = ([] as unknown[]).concat(value ?? []).filter((v): v is string => typeof v === "string" && v !== "");
+      const options = column.options ?? [];
+      const data = [
+        ...options.map((o) => ({ value: o.label, label: o.label })),
+        ...current.filter((v) => !options.some((o) => o.label === v)).map((v) => ({ value: v, label: `${v} (removed)` })),
+      ];
+      const colorOf = (label: string) => options.find((o) => o.label === label)?.color ?? "gray";
+      const renderOption = ({ option }: { option: { value: string; label: string } }) => (
+        <Group gap={8} wrap="nowrap">
+          <ColorSwatch color={`var(--mantine-color-${colorOf(option.value)}-filled)`} size={10} withShadow={false} />
+          {option.label}
+        </Group>
+      );
+      return column.multiple ? (
+        <MultiSelect
+          {...common}
+          data={data}
+          value={current}
+          onChange={(v) => onChange(v)}
+          renderOption={renderOption}
+          searchable={data.length > 8}
+          clearable
+          placeholder={current.length ? undefined : "Choose…"}
+        />
+      ) : (
+        <Select
+          {...common}
+          data={data}
+          value={current[0] ?? null}
+          onChange={(v) => onChange(v ?? null)}
+          renderOption={renderOption}
+          searchable={data.length > 8}
+          clearable={!column.required}
+          placeholder="Choose…"
+          leftSection={
+            current[0] ? (
+              <ColorSwatch color={`var(--mantine-color-${colorOf(current[0])}-filled)`} size={10} withShadow={false} />
+            ) : undefined
+          }
+        />
+      );
+    }
 
     case "relation":
       return <RelationInput id={id} column={column} value={value} onChange={onChange} error={error} />;

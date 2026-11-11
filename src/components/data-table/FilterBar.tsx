@@ -23,7 +23,7 @@ import { formatDate, formatNumber } from "../../lib/format";
 // Column filters shown as chips ("Price ≥ 100 ×") with an "Add filter" menu.
 // The filter shape matches the API's ?filters= parameter.
 
-export type FilterKind = "text" | "number" | "date" | "boolean" | "relation" | "file" | "department";
+export type FilterKind = "text" | "number" | "date" | "boolean" | "relation" | "choice" | "file" | "department";
 
 export interface Filter {
   field: string;
@@ -38,7 +38,7 @@ export interface FilterField {
   name: string;
   label: string;
   kind: FilterKind;
-  // department: fixed options
+  // department / choice: fixed options
   options?: { value: string; label: string }[];
   // relation: search the linked table
   loadOptions?: (search: string) => Promise<{ value: string; label: string }[]>;
@@ -79,6 +79,12 @@ const OPS: Record<FilterKind, { value: string; label: string; needs: 0 | 1 | 2 }
   ],
   relation: [
     { value: "in", label: "is any of", needs: 1 },
+    { value: "isEmpty", label: "is empty", needs: 0 },
+    { value: "isNotEmpty", label: "is not empty", needs: 0 },
+  ],
+  choice: [
+    { value: "in", label: "is any of", needs: 1 },
+    { value: "notIn", label: "is none of", needs: 1 },
     { value: "isEmpty", label: "is empty", needs: 0 },
     { value: "isNotEmpty", label: "is not empty", needs: 0 },
   ],
@@ -152,7 +158,7 @@ function FilterEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced, field]);
 
-  const listOptions = field.kind === "department" ? (field.options ?? []) : options;
+  const listOptions = field.kind === "department" || field.kind === "choice" ? (field.options ?? []) : options;
 
   const valueInput = () => {
     if (op.needs === 0) return null;
@@ -198,6 +204,7 @@ function FilterEditor({
         );
       case "relation":
       case "department":
+      case "choice":
         return (
           <MultiSelect
             aria-label="Values"

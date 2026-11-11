@@ -73,11 +73,16 @@ export const useUpdateColumn = (table: string, column: string) => {
 
     return useMutation({
         mutationFn: (data: any) => api.updateColumn(table, column, data),
-        onSuccess: () => {
+        onSuccess: (res: { data?: { rewritten?: number } }) => {
             qc.invalidateQueries({ queryKey: ["schema", table] });
+            // records follow renamed options / a Text -> Choice change
+            qc.invalidateQueries({ queryKey: ["tableData", table] });
+            const rewritten = res?.data?.rewritten ?? 0;
             notifications.show({
                 title: "Column updated",
-                message: "Column updated successfully",
+                message: rewritten
+                    ? `Updated the value on ${rewritten.toLocaleString()} record${rewritten === 1 ? "" : "s"}`
+                    : "Column updated successfully",
                 color: "green",
             });
         },

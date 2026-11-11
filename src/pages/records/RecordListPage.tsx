@@ -43,7 +43,7 @@ import {
   FILE_TYPES,
   httpStatus,
   primaryColumn,
-  SORTABLE_TYPES,
+  isSortable,
   type RecordColumn,
   type RecordRow,
   type TableSchemaInfo,
@@ -55,6 +55,7 @@ const filterKind = (column: RecordColumn): FilterField["kind"] => {
   }
   // people and departments are picked like linked records
   if (column.type === "user" || column.type === "department") return "relation";
+  if (column.type === "choice") return "choice";
   return FILE_TYPES.includes(column.type) ? "file" : "text";
 };
 
@@ -162,7 +163,7 @@ export default function RecordListPage() {
     const fromSchema: DataTableColumn<RecordRow>[] = ordered.map((column) => ({
       id: column.name,
       header: columnLabel(column),
-      sortable: SORTABLE_TYPES.includes(column.type),
+      sortable: isSortable(column),
       align: column.type === "number" ? "right" : undefined,
       width: column === primary ? 200 : column.type === "richtext" || column.type === "textarea" ? 240 : 120,
       hiddenByDefault: column !== primary && column.showInTable === false,
@@ -233,6 +234,7 @@ export default function RecordListPage() {
       name: column.name,
       label: columnLabel(column),
       kind: filterKind(column),
+      options: column.type === "choice" ? (column.options ?? []).map((o) => ({ value: o.label, label: o.label })) : undefined,
       loadOptions:
         column.type === "user"
           ? loadPeople

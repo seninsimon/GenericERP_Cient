@@ -48,6 +48,13 @@ const ACTION_COLORS: Record<string, string> = {
   assign_unassigned: "cyan",
 };
 
+// column settings in the history of a column
+const CHANGE_LABELS: Record<string, string> = {
+  options: "Options",
+  recordsUpdated: "Records updated",
+  showInTable: "Shown in list",
+};
+
 // stored action names that read badly as-is
 const ACTION_LABELS: Record<string, string> = { assign_unassigned: "Moved into department" };
 
@@ -100,7 +107,7 @@ export function ChangesView({
   }
 
   const labelFor = (key: string) =>
-    key === "_department" ? "Visible to" : (labels[key] ?? key);
+    key === "_department" ? "Visible to" : (labels[key] ?? CHANGE_LABELS[key] ?? key);
 
   if (isFromToMap(changes)) {
     return (
