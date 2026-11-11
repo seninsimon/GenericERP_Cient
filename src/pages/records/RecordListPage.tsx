@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ActionIcon, Alert, Anchor, Badge, Button, Group, Menu, Skeleton, Text } from "@mantine/core";
+import { ActionIcon, Alert, Anchor, Badge, Button, Group, Menu, Skeleton, Text, Tooltip } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -278,10 +278,23 @@ export default function RecordListPage() {
         title={title}
         meta={
           list.data ? (
-            <Badge variant="default" className="tabular-nums">
-              {list.data.totalIsEstimate ? "~" : ""}
-              {pluralize(total, "record")}
-            </Badge>
+            <>
+              <Badge variant="default" className="tabular-nums">
+                {list.data.totalIsEstimate ? "~" : ""}
+                {pluralize(total, "record")}
+              </Badge>
+              {perms.own && (
+                <Tooltip
+                  label="Your role shows only records you created or where you're picked (e.g. Employee, Assigned to)"
+                  multiline
+                  w={260}
+                >
+                  <Badge variant="light" color="gray">
+                    Only your records
+                  </Badge>
+                </Tooltip>
+              )}
+            </>
           ) : schemaQuery.isLoading ? (
             <Skeleton h={20} w={80} />
           ) : null
