@@ -8,6 +8,8 @@ export type ColumnType =
   | "date"
   | "boolean"
   | "relation"
+  | "user"
+  | "department"
   | "image"
   | "images"
   | "file"
@@ -36,7 +38,8 @@ export interface TableSchemaInfo {
   columns: RecordColumn[];
   departments?: Department[];
   allowedDepartments?: Department[];
-  permissions?: { view?: boolean; create?: boolean; edit?: boolean; delete?: boolean };
+  // own: the role limits this table to the user's own records
+  permissions?: { view?: boolean; create?: boolean; edit?: boolean; delete?: boolean; own?: boolean };
   unassignedCount?: number;
 }
 

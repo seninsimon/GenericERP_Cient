@@ -204,12 +204,17 @@ export const useUpdateTableSettings = () => {
     return useMutation({
         mutationFn: ({ table, data }: { table: string; data: any }) =>
             api.updateTableSettings(table, data),
-        onSuccess: () => {
+        onSuccess: (res: { data?: { moved?: number; data?: { departments?: { name: string }[] } } }, { table }) => {
             qc.invalidateQueries({ queryKey: ["tables"] });
             qc.invalidateQueries({ queryKey: ["schema"] });
+            qc.invalidateQueries({ queryKey: ["tableData", table] });
+            const moved = Number(res?.data?.moved ?? 0);
+            const only = res?.data?.data?.departments?.[0]?.name;
             notifications.show({
-                title: "Table settings updated",
-                message: "Table settings updated successfully",
+                title: "Access saved",
+                message: moved
+                    ? `${moved} existing record${moved === 1 ? " is" : "s are"} now visible to ${only}.`
+                    : "Table settings updated.",
                 color: "green",
             });
         },

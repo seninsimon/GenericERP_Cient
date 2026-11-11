@@ -123,6 +123,22 @@ export const getRelationOptions = (
   return api.get<RelationOption[]>(`/table/${encodeURIComponent(table)}/options`, { params });
 };
 
+export type UserOption = { value: string; label: string; username: string; isActive: boolean };
+
+// People for "User" columns and filters (any logged-in user; names only).
+// `ids` resolves exactly those users (deleted ones come back as "Deleted user");
+// otherwise up to `limit` active users matching `search`.
+export const getUserOptions = (opts: { search?: string; limit?: number; ids?: string[] } = {}) => {
+  const params: Record<string, string | number> = {};
+  if (opts.search) params.search = opts.search;
+  if (opts.limit) params.limit = opts.limit;
+  if (opts.ids?.length) params.ids = opts.ids.join(",");
+  return api.get<UserOption[]>("/users/options", { params });
+};
+
+// Every department, for "Department" columns and filters (any logged-in user; names only).
+export const getDepartmentOptions = () => api.get<{ value: string; label: string }[]>("/departments/options");
+
 export const getSingleData = (table: string, id: string) =>
   api.get(`/table/${table}/${id}`);
 

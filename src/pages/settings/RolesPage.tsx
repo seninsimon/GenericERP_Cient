@@ -15,6 +15,7 @@ import {
   Text,
   TextInput,
   Textarea,
+  Tooltip,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { IconEdit, IconInfoCircle, IconPlus, IconShieldLock, IconTrash } from "@tabler/icons-react";
@@ -44,6 +45,9 @@ const ACTION_LABELS: Record<Action, string> = { view: "View", create: "Create", 
 
 const NONE: TablePermission = { view: false, create: false, edit: false, delete: false };
 const ALL: TablePermission = { view: true, create: true, edit: true, delete: true };
+
+const OWN_HELP =
+  "Only records they created, or where they're picked in a User column (e.g. Employee, Assigned to). Leave it off to see the whole department's records.";
 
 // One change: write actions imply view; removing view clears everything.
 const toggle = (perm: TablePermission, action: Action, checked: boolean): TablePermission => {
@@ -118,6 +122,15 @@ function PermissionMatrix({
                   />
                 ))}
               </SimpleGrid>
+              <Switch
+                size="sm"
+                mt="xs"
+                label="Own records only"
+                description={OWN_HELP}
+                disabled={!perm.view}
+                checked={Boolean(perm.own)}
+                onChange={(e) => setTable(table, { ...perm, own: e.currentTarget.checked })}
+              />
             </div>
           );
         })}
@@ -150,6 +163,16 @@ function PermissionMatrix({
                 </Table.Th>
               );
             })}
+            <Table.Th w={90}>
+              <Tooltip label={OWN_HELP} multiline w={260} withArrow>
+                <Group gap={4} justify="center" wrap="nowrap" style={{ cursor: "help" }}>
+                  <Text size="xs" fw={600}>
+                    Own only
+                  </Text>
+                  <IconInfoCircle size={13} aria-hidden />
+                </Group>
+              </Tooltip>
+            </Table.Th>
             <Table.Th w={70}>
               <Text size="xs" fw={600}>
                 All
@@ -180,9 +203,20 @@ function PermissionMatrix({
                 <Table.Td>
                   <Group justify="center">
                     <Checkbox
+                      checked={Boolean(perm.own)}
+                      disabled={!perm.view}
+                      onChange={(e) => setTable(table, { ...perm, own: e.currentTarget.checked })}
+                      aria-label={`Own records only in ${tableTitle(table)}`}
+                    />
+                  </Group>
+                </Table.Td>
+                <Table.Td>
+                  <Group justify="center">
+                    <Checkbox
                       checked={allChecked}
                       indeterminate={!allChecked && perm.view}
-                      onChange={(e) => setTable(table, e.currentTarget.checked ? { ...ALL } : { ...NONE })}
+                      // "own only" is a limit, not an action: "All" keeps it as it is
+                      onChange={(e) => setTable(table, e.currentTarget.checked ? { ...ALL, own: perm.own } : { ...NONE })}
                       aria-label={`All permissions for ${tableTitle(table)}`}
                     />
                   </Group>
@@ -266,7 +300,9 @@ function RoleModal({ role, onClose }: { role: Role | null; onClose: () => void }
                 Table permissions
               </Text>
               <Text size="xs" c="dimmed">
-                People still only see tables and records of their own departments. Create, edit and delete include view.
+                People still only see tables and records of their own departments. Create, edit and delete include
+                view. <b>Own only</b> limits a table to their own records (e.g. each person sees just their own
+                employee record or leave requests).
               </Text>
             </div>
             <PermissionMatrix tables={tableNames} value={permissions} onChange={setPermissions} />

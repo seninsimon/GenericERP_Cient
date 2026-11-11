@@ -3,7 +3,7 @@ import { Alert, Box, Button, Group, Skeleton, Stack, Text, Tooltip } from "@mant
 import { IconAlertCircle, IconHistory } from "@tabler/icons-react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
-import { errorMessage, getAuditLog, getRelationOptions } from "../../api/api";
+import { errorMessage, getAuditLog, getDepartmentOptions, getRelationOptions, getUserOptions } from "../../api/api";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { formatDateTime, formatRelative } from "../../lib/format";
 import { ActionBadge, ChangesView } from "../../utils/auditFormat";
@@ -39,7 +39,7 @@ export function RecordActivity({
   const relationIds = useMemo(() => {
     const byField: Record<string, string[]> = {};
     for (const column of columns) {
-      if (column.type !== "relation" || !column.ref) continue;
+      if (!["user", "department"].includes(column.type) && (column.type !== "relation" || !column.ref)) continue;
       const ids = new Set<string>();
       for (const entry of entries) {
         const change = entry.changes?.[column.name];
@@ -59,7 +59,12 @@ export function RecordActivity({
       for (const [field, ids] of Object.entries(relationIds)) {
         const column = columns.find((c) => c.name === field)!;
         try {
-          const { data } = await getRelationOptions(column.ref!, { ids, displayField: column.displayField });
+          const { data } =
+            column.type === "user"
+              ? await getUserOptions({ ids })
+              : column.type === "department"
+                ? await getDepartmentOptions()
+                : await getRelationOptions(column.ref!, { ids, displayField: column.displayField });
           result[field] = Object.fromEntries(data.map((o) => [o.value, o.label]));
         } catch {
           // no access to the linked table: ids stay as they are

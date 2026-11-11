@@ -48,8 +48,11 @@ const ACTION_COLORS: Record<string, string> = {
   assign_unassigned: "cyan",
 };
 
+// stored action names that read badly as-is
+const ACTION_LABELS: Record<string, string> = { assign_unassigned: "Moved into department" };
+
 export const actionLabel = (action: string) =>
-  action.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+  ACTION_LABELS[action] ?? action.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 
 export function ActionBadge({ action }: { action: string }) {
   return (
@@ -97,7 +100,7 @@ export function ChangesView({
   }
 
   const labelFor = (key: string) =>
-    key === "_department" ? "Department" : (labels[key] ?? key);
+    key === "_department" ? "Visible to" : (labels[key] ?? key);
 
   if (isFromToMap(changes)) {
     return (

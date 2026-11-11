@@ -88,7 +88,7 @@ const OPS: Record<FilterKind, { value: string; label: string; needs: 0 | 1 | 2 }
   ],
   department: [
     { value: "in", label: "is any of", needs: 1 },
-    { value: "isEmpty", label: "is unassigned", needs: 0 },
+    { value: "isEmpty", label: "is admins only", needs: 0 },
   ],
 };
 

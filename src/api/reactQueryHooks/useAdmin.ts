@@ -9,6 +9,8 @@ export type TablePermission = {
   create: boolean;
   edit: boolean;
   delete: boolean;
+  // only records they created, or where they're picked in a User column
+  own?: boolean;
 };
 
 export type PermissionMap = Record<string, TablePermission>;

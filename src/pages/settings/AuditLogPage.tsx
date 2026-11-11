@@ -26,7 +26,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Page, PageHeader } from "../../components/ui/Page";
 import { recordPath, tableTitle } from "../../layout/nav";
 import { formatDateTime, formatNumber, formatRelative } from "../../lib/format";
-import { ActionBadge, ChangesView, describeEntry } from "../../utils/auditFormat";
+import { ActionBadge, actionLabel, ChangesView, describeEntry } from "../../utils/auditFormat";
 
 const ENTITIES = [
   { value: "record", label: "Records" },
@@ -49,7 +49,7 @@ const ACTIONS = [
   "password_change",
   "settings",
   "assign_unassigned",
-].map((a) => ({ value: a, label: a.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase()) }));
+].map((a) => ({ value: a, label: actionLabel(a) }));
 
 // Filter values kept in the URL (as the single item of the table state's filters).
 type AuditFilters = {
