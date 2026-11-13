@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import api, { errorMessage } from "../../api/api";
 import { confirmDanger } from "../../components/ui/confirm";
 import { Page, PageHeader, Section } from "../../components/ui/Page";
+import { FeaturesSection, LimitsSection, UsageSection, type AiFeatures, type AiLimits } from "./AiFeatureSections";
 
 type Provider = "anthropic" | "gemini" | "openai";
 type AiSettings = {
@@ -16,6 +17,9 @@ type AiSettings = {
   defaultModels: Record<Provider, string>;
   hasKey: Record<Provider, boolean>;
   ready: boolean;
+  features: AiFeatures;
+  limits: AiLimits;
+  askRoles: string[];
 };
 
 const PROVIDERS: Record<Provider, { name: string; company: string; keyUrl: string; keyPage: string }> = {
@@ -24,7 +28,7 @@ const PROVIDERS: Record<Provider, { name: string; company: string; keyUrl: strin
   openai: { name: "ChatGPT", company: "OpenAI", keyUrl: "https://platform.openai.com/api-keys", keyPage: "OpenAI Platform → API keys" },
 };
 
-// Administration → AI (Beta): which AI drafts apps, and its key.
+// Administration → AI (Beta): the provider and its key, the AI features, usage and limits.
 export default function AiSettingsPage() {
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["ai"], queryFn: async () => (await api.get<AiSettings>("/ai")).data });
@@ -53,6 +57,7 @@ export default function AiSettingsPage() {
   const test = useMutation({
     mutationFn: async () => (await api.post<{ message: string }>("/ai/test")).data,
     onSuccess: (r) => notifications.show({ title: "Working ✓", message: r.message, color: "green" }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["aiUsage"] }),
     onError: (err: { response?: { data?: { errors?: { detail?: string } } } }) =>
       notifications.show({
         title: "The test didn't work",
@@ -82,7 +87,7 @@ export default function AiSettingsPage() {
   const removeKey = () =>
     confirmDanger({
       title: `Remove the ${info.name} key?`,
-      message: "Drafting with AI stops until a key is added again.",
+      message: "Every AI feature stops until a key is added again.",
       confirmLabel: "Remove key",
       onConfirm: async () => {
         await save.mutateAsync({ provider, removeKey: true });
@@ -102,13 +107,13 @@ export default function AiSettingsPage() {
         }
         description={
           <>
-            Choose the AI that drafts apps in <Anchor component={Link} to="/settings/apps">Manage apps → Describe your organization</Anchor>. You pay the provider directly, per use.
+            Choose the AI behind Zenin's AI features, such as drafting apps in <Anchor component={Link} to="/settings/apps">Manage apps</Anchor>. You pay the provider directly, per use.
           </>
         }
         meta={
           data.ready ? (
             <Badge color="green" variant="light">
-              On: {PROVIDERS[data.provider].name} drafts apps
+              On: {PROVIDERS[data.provider].name}
             </Badge>
           ) : (
             <Badge color="gray" variant="light">
@@ -195,10 +200,14 @@ export default function AiSettingsPage() {
           </Stack>
         </Section>
 
+        <FeaturesSection features={data.features} ready={data.ready} askRoles={data.askRoles} />
+        <UsageSection provider={data.provider} />
+        <LimitsSection key={JSON.stringify(data.limits)} limits={data.limits} />
+
         <Alert variant="light" color="blue" icon={<IconInfoCircle size={18} />} title="Good to know">
           <Stack gap={4}>
             <Text size="sm">
-              When you draft an app, the description you type is sent to {info.company}. Nothing else from the ERP is sent: no records, no people.
+              When you use an AI feature, only what it needs is sent to {info.company}: for drafting, the description you type; for Ask Zenin, the question and the records found for it, which the person asking can already see.
             </Text>
             <Text size="sm">
               This is in Beta: the AI drafts, you decide. Every draft is checked and shown to you before anything is added, and you can change everything afterwards.

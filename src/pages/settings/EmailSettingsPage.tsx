@@ -26,6 +26,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Page, PageHeader, Section } from "../../components/ui/Page";
 import { useCurrentUser } from "../../auth/AuthContext";
 import { formatDateTime, formatRelative } from "../../lib/format";
+import { useBranding } from "../../lib/branding";
 
 type Settings = {
   enabled: boolean;
@@ -61,6 +62,7 @@ const GMAIL_DAILY_LIMIT = 500;
 export default function EmailSettingsPage() {
   const qc = useQueryClient();
   const { user: me } = useCurrentUser();
+  const { name: brand } = useBranding();
   const { data, isLoading } = useQuery({
     queryKey: ["email"],
     queryFn: async () => (await api.get<Overview>("/email")).data,
@@ -198,7 +200,7 @@ export default function EmailSettingsPage() {
               <TextInput label="Sender name" description="Shown in people's inbox" value={form.fromName} onChange={(e) => set("fromName", e.currentTarget.value)} />
               <TextInput
                 label="Links in emails go to"
-                description="The address people open Zenin ERP at"
+                description={`The address people open ${brand} at`}
                 value={form.appUrl}
                 onChange={(e) => set("appUrl", e.currentTarget.value)}
                 error={errors.appUrl}

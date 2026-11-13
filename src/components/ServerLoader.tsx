@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Box, Button, Center, Group, Progress, Stack, Text, ThemeIcon } from "@mantine/core";
+import { Box, Button, Center, Progress, Stack, Text } from "@mantine/core";
 import { getHealth } from "../api/api";
+import { BrandMark } from "./ui/BrandMark";
 
 const SLOW_AFTER_MS = 15_000;
 
@@ -41,16 +42,7 @@ export default function ServerLoader({ children }: { children: ReactNode }) {
   return (
     <Center mih="100dvh" bg="var(--app-bg)" p="md">
       <Stack align="center" gap="lg" maw={360} w="100%" role="status" aria-live="polite">
-        <Group gap={10}>
-          <ThemeIcon size={40} radius="md" variant="filled" aria-hidden>
-            <Text fw={800} fz={20} c="white">
-              Z
-            </Text>
-          </ThemeIcon>
-          <Text fw={700} fz="xl">
-            Zenin ERP
-          </Text>
-        </Group>
+        <BrandMark size={40} nameSize="xl" />
         <Box w="100%">
           <Progress value={100} animated size="xs" aria-label="Connecting" />
         </Box>

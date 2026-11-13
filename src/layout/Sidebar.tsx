@@ -1,20 +1,5 @@
-import { Fragment, useMemo, useState } from "react";
-import {
-  ActionIcon,
-  Box,
-  Group,
-  Kbd,
-  Menu,
-  NavLink,
-  ScrollArea,
-  Skeleton,
-  Stack,
-  Text,
-  TextInput,
-  ThemeIcon,
-  Tooltip,
-  UnstyledButton,
-} from "@mantine/core";
+import { Fragment, useMemo } from "react";
+import { ActionIcon, Box, Group, Kbd, Menu, NavLink, ScrollArea, Skeleton, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import {
   IconLayoutGrid,
   IconLayoutSidebarLeftCollapse,
@@ -33,8 +18,8 @@ import { appPath, useAppMenu, useCurrentApp, type LauncherApp, type MenuTable } 
 import { usePreferences } from "../lib/preferences";
 import { ADMIN_NAV, MAIN_NAV, tablePath, tableTitle, type NavItem } from "./nav";
 import classes from "./Sidebar.module.css";
-
-const SHOW_FILTER_FROM = 8; // tables
+import { BrandMark } from "../components/ui/BrandMark";
+import { useBranding } from "../lib/branding";
 
 // Short, unique 2-letter badges for tables in the icon rail, so 18 tables
 // aren't 18 identical icons ("Companies" -> "Co", "Contacts" -> "Cn").
@@ -171,11 +156,11 @@ function AppSwitcher({ app, apps, collapsed, onNavigate }: { app: LauncherApp; a
 
 export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean; onNavigate: () => void }) {
   const { isAdmin } = useCurrentUser();
+  const { name: brand } = useBranding();
   const { setPreference } = usePreferences();
   const location = useLocation();
   const { apps, appOfTable, appMode, isLoading } = useAppMenu();
   const current = useCurrentApp(apps, appOfTable);
-  const [query, setQuery] = useState("");
 
   // What the menu lists:
   //  - few apps: every table, grouped by app (no headings with just one)
@@ -184,13 +169,12 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
   const app = appMode ? current : null;
   const showApps = appMode && !app;
   const groups = useMemo(() => {
-    const match = (t: MenuTable) => !query || t.tableName.toLowerCase().includes(query.toLowerCase());
-    const pick = (name: string, tables: MenuTable[]) => ({ name, tables: tables.filter(match) });
+    // finding a table by name is the search's job (Ctrl K)
+    const pick = (name: string, tables: MenuTable[]) => ({ name, tables });
     if (app) return [pick("", app.tables), pick("Also used", app.alsoUsed)].filter((g) => g.tables.length);
     if (showApps) return [];
     return apps.map((a) => pick(a.name, a.tables)).filter((g) => g.tables.length);
-  }, [apps, app, showApps, query]);
-  const listed = app ? app.tables.length + app.alsoUsed.length : showApps ? 0 : apps.reduce((n, a) => n + a.tables.length, 0);
+  }, [apps, app, showApps]);
   const grouped = !app && groups.length > 1;
 
   const badges = useMemo(
@@ -205,19 +189,8 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
     <Stack h="100%" gap={0}>
       {/* brand + collapse */}
       <Group h="var(--app-header-height)" px={collapsed ? 0 : "md"} justify={collapsed ? "center" : "space-between"} wrap="nowrap" className={classes.brandRow}>
-        <UnstyledButton component={RouterLink} to="/" onClick={onNavigate} aria-label="Zenin ERP home">
-          <Group gap={10} wrap="nowrap">
-            <ThemeIcon size={30} radius="md" variant="filled" aria-hidden>
-              <Text fw={800} fz={15} c="white">
-                Z
-              </Text>
-            </ThemeIcon>
-            {!collapsed && (
-              <Text fw={700} fz="md" lh={1}>
-                Zenin ERP
-              </Text>
-            )}
-          </Group>
+        <UnstyledButton component={RouterLink} to="/" onClick={onNavigate} aria-label={`${brand} home`} style={{ minWidth: 0 }}>
+          <BrandMark size={30} showName={!collapsed} />
         </UnstyledButton>
         {!collapsed && (
           <Tooltip label="Collapse sidebar">
@@ -272,17 +245,6 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
               />
             ))}
           {!app && !showApps && !grouped && <SectionLabel collapsed={collapsed}>Tables</SectionLabel>}
-          {!collapsed && listed >= SHOW_FILTER_FROM && (
-            <TextInput
-              size="xs"
-              placeholder="Filter tables"
-              aria-label="Filter tables"
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-              mb={4}
-              mt={grouped ? "xs" : 0}
-            />
-          )}
           {isLoading
             ? Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} h={collapsed ? 40 : 32} w={collapsed ? 40 : undefined} radius="md" />
@@ -304,7 +266,7 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
               ))}
           {!isLoading && !showApps && !groups.length && !collapsed && (
             <Text size="xs" c="dimmed" px="sm" py={4}>
-              {query ? "No tables match" : "No tables yet"}
+              No tables yet
             </Text>
           )}
 

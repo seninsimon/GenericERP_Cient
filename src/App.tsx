@@ -7,6 +7,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import ServerLoader from "./components/ServerLoader";
 import { AuthProvider, useCurrentUser } from "./auth/AuthContext";
 import AppLayout from "./layout/AppLayout";
+import { useBrandFavicon } from "./lib/branding";
 
 // pages load on demand so the first download stays small
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -27,6 +28,7 @@ const DepartmentsPage = lazy(() => import("./pages/settings/DepartmentsPage"));
 const AuditLogPage = lazy(() => import("./pages/settings/AuditLogPage"));
 const AppsPage = lazy(() => import("./pages/settings/AppsPage"));
 const EmailSettingsPage = lazy(() => import("./pages/settings/EmailSettingsPage"));
+const BrandingPage = lazy(() => import("./pages/settings/BrandingPage"));
 const AiSettingsPage = lazy(() => import("./pages/settings/AiSettingsPage"));
 const ChatSettingsPage = lazy(() => import("./pages/settings/ChatSettingsPage"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
@@ -46,6 +48,7 @@ function LegacyRecordRedirect({ edit }: { edit?: boolean }) {
 }
 
 export default function App() {
+  useBrandFavicon();
   return (
     <BrowserRouter>
       <ModalsProvider>
@@ -83,6 +86,7 @@ export default function App() {
                   <Route path="settings/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
                   <Route path="settings/apps" element={<AdminOnly><AppsPage /></AdminOnly>} />
                   <Route path="settings/email" element={<AdminOnly><EmailSettingsPage /></AdminOnly>} />
+                  <Route path="settings/branding" element={<AdminOnly><BrandingPage /></AdminOnly>} />
                   <Route path="settings/ai" element={<AdminOnly><AiSettingsPage /></AdminOnly>} />
                   <Route path="settings/chat" element={<AdminOnly><ChatSettingsPage /></AdminOnly>} />
                   <Route path="chat" element={<ChatPage />} />

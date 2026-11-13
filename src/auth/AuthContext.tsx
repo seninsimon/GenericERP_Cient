@@ -17,6 +17,8 @@ export type CurrentUser = {
   isActive: boolean;
   // "Email me": now | daily (in the morning summary) | never
   emailPref?: "now" | "daily" | "never";
+  // profile picture ("/uploads/…"); "" = initials
+  avatarUrl?: string;
   lastLoginAt: string | null;
   role: {
     _id: string;

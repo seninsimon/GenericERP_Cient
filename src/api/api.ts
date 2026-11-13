@@ -43,7 +43,7 @@ export const logout = () => api.post("/auth/logout");
 
 export const getMe = () => api.get("/auth/me");
 
-export const updateProfile = (data: { fullName?: string; email?: string; phone?: string; emailPref?: "now" | "daily" | "never" }) =>
+export const updateProfile = (data: { fullName?: string; email?: string; phone?: string; emailPref?: "now" | "daily" | "never"; avatarUrl?: string }) =>
   api.put("/auth/profile", data);
 
 export const changePassword = (data: { currentPassword: string; newPassword: string }) =>

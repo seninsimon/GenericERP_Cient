@@ -354,11 +354,11 @@ export default function AppsPage() {
               <Group gap="xs">
                 Describe your organization
                 <Badge variant="light" color="violet">
-                  Beta
+                  AI · Beta
                 </Badge>
               </Group>
             }
-            description={`Not in the list? Say what you do in a sentence or two, and AI${data?.aiName ? ` (${data.aiName})` : ""} drafts the tables. You'll see them before anything is added, and can change everything afterwards.`}
+            description={`Not in the list? Say what you do in a sentence or two, and AI${data?.aiName ? ` (${data.aiName})` : ""} drafts the tables. You'll see them before anything is added, and can change everything afterwards. AI can make mistakes: check before relying on it.`}
           >
             {data?.aiDrafts ? (
               <Stack gap="sm">
@@ -391,7 +391,7 @@ export default function AppsPage() {
             ) : (
               <Group gap="sm">
                 <Text size="sm" c="dimmed">
-                  To turn this on, choose an AI (Claude, Gemini or ChatGPT) and paste its key.
+                  To turn this on, choose an AI (Claude, Gemini or ChatGPT), paste its key, and switch on Draft apps.
                 </Text>
                 <Button size="xs" variant="light" component={Link} to="/settings/ai" leftSection={<IconSparkles size={14} />}>
                   Set up AI

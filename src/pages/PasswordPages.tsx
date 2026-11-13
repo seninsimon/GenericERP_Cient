@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Alert, Anchor, Box, Button, Center, Group, Loader, PasswordInput, Stack, Text, TextInput, ThemeIcon, Title } from "@mantine/core";
+import { Alert, Anchor, Box, Button, Center, Loader, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core";
 import { IconAlertCircle, IconCircleCheck, IconLock, IconUser } from "@tabler/icons-react";
 import { useSearchParams } from "react-router-dom";
 
 import api, { errorMessage } from "../api/api";
+import { BrandMark } from "../components/ui/BrandMark";
 
 // Public pages (no sign-in): "Forgot password?" and the "set your password"
 // link from a welcome or reset email.
@@ -12,16 +13,9 @@ function Shell({ title, intro, children, back = true }: { title: string; intro?:
   return (
     <Center mih="100dvh" p="md" style={{ background: "var(--app-bg)" }}>
       <Box w="100%" maw={400} component="main">
-        <Group gap={10} wrap="nowrap" mb="xl">
-          <ThemeIcon size={36} radius="md" variant="filled" aria-hidden>
-            <Text fw={800} fz={18} c="white">
-              Z
-            </Text>
-          </ThemeIcon>
-          <Text fw={700} fz="lg" lh={1}>
-            Zenin ERP
-          </Text>
-        </Group>
+        <Box mb="xl">
+          <BrandMark size={36} nameSize="lg" />
+        </Box>
         <Stack gap={4} mb="lg">
           <Title order={2}>{title}</Title>
           {intro && (

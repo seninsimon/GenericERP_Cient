@@ -134,9 +134,9 @@ shadows in components.**
 
 ### Sidebar (`src/layout/Sidebar.tsx`)
 
-- **Order:** Home and workspace pages, then the **Tables** the user can access
-  (with a filter box once there are 8 or more), then **Administration** (admins
-  only).
+- **Order:** Home and workspace pages, then the **Tables** the user can access,
+  then **Administration** (admins only). No filter box: finding a table by
+  name is the search's job (Ctrl K), which is at the top of the sidebar.
 - **Active item:** accent background. One active item at a time.
 - **Collapsing:** desktops can collapse to a 64 px **icon rail**, with tooltips
   on every icon and the choice remembered. Tablets get the rail by default.

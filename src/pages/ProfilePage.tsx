@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  Avatar,
   Badge,
   Box,
   Button,
@@ -26,10 +25,11 @@ import { notifications } from "@mantine/notifications";
 import { changePassword, errorMessage, updateProfile } from "../api/api";
 import { useCurrentUser } from "../auth/AuthContext";
 import { Page, Section } from "../components/ui/Page";
-import { initialsOf } from "../layout/UserMenu";
+import { ProfilePicture } from "../features/profile/ProfilePicture";
 import { usePreferences } from "../lib/preferences";
 import { formatDateTime } from "../lib/format";
 import { ACCENTS, type Accent } from "../theme/theme";
+import { useBranding } from "../lib/branding";
 
 const MIN_PASSWORD = 8;
 
@@ -52,6 +52,7 @@ const STRENGTH = [
 
 export default function ProfilePage() {
   const { user, refresh } = useCurrentUser();
+  const { name: brand } = useBranding();
   const { accent, setPreference } = usePreferences();
   const { colorScheme, setColorScheme } = useMantineColorScheme();
   const theme = useMantineTheme();
@@ -120,9 +121,7 @@ export default function ProfilePage() {
     <Page title="My profile" breadcrumbs={[{ label: "My profile" }]} width="narrow">
       {/* identity */}
       <Group gap="lg" mb="xl" wrap="nowrap" align="center">
-        <Avatar size={72} radius="xl" color="initials" name={name}>
-          {initialsOf(name)}
-        </Avatar>
+        <ProfilePicture />
         <Stack gap={6} style={{ minWidth: 0 }}>
           <Title order={2} style={{ overflowWrap: "anywhere" }}>
             {name}
@@ -185,7 +184,7 @@ export default function ProfilePage() {
               <Stack gap="sm">
                 <Radio value="now" label="Right away" description="One email each time something needs you" />
                 <Radio value="daily" label="Once a day" description="Everything in the morning summary" />
-                <Radio value="never" label="Never" description="Only the bell in Zenin ERP (password emails still come)" />
+                <Radio value="never" label="Never" description={`Only the bell in ${brand} (password emails still come)`} />
               </Stack>
             </Radio.Group>
           ) : (

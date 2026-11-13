@@ -22,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useSystemHealth } from "../api/reactQueryHooks/useHealth";
 import { useCurrentUser } from "../auth/AuthContext";
+import { fileUrl } from "../lib/format";
 import { usePreferences } from "../lib/preferences";
 import { ACCENTS, type Accent } from "../theme/theme";
 
@@ -77,7 +78,7 @@ export default function UserMenu() {
         <Menu.Target>
           <UnstyledButton aria-label={`Account menu for ${name}`} ml={4}>
             <Group gap={8} wrap="nowrap">
-              <Avatar size={32} radius="xl" color="initials" name={name}>
+              <Avatar size={32} radius="xl" color="initials" name={name} src={user.avatarUrl ? fileUrl(user.avatarUrl) : undefined} alt="">
                 {initialsOf(name)}
               </Avatar>
               <Box visibleFrom="md" style={{ lineHeight: 1.2 }}>

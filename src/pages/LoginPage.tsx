@@ -26,6 +26,7 @@ import {
 
 import { errorMessage, login } from "../api/api";
 import type { CurrentUser } from "../auth/AuthContext";
+import { BrandMark } from "../components/ui/BrandMark";
 
 const FEATURES = [
   { icon: IconTable, text: "Build the tables your team needs, no code required" },
@@ -34,18 +35,7 @@ const FEATURES = [
 ];
 
 function Logo({ size = 36 }: { size?: number }) {
-  return (
-    <Group gap={10} wrap="nowrap">
-      <ThemeIcon size={size} radius="md" variant="filled" aria-hidden>
-        <Text fw={800} fz={size * 0.5} c="white">
-          Z
-        </Text>
-      </ThemeIcon>
-      <Text fw={700} fz="lg" lh={1}>
-        Zenin ERP
-      </Text>
-    </Group>
-  );
+  return <BrandMark size={size} nameSize="lg" />;
 }
 
 export default function LoginPage({ onLoggedIn }: { onLoggedIn: (user: CurrentUser) => void }) {
