@@ -199,12 +199,11 @@ export default function RecordListPage() {
   };
 
   /* ---------- columns & filters ---------- */
-  // "Visible to": only when the table is shared with several departments and
-  // you can see more than one; admins also while some records are admins-only
+  // "Visible to": when the table is shared with several departments (a record
+  // may be visible to several); admins also while some records are admins-only
   const showDepartment =
-    Boolean(schema) &&
-    (((schema?.departments?.length ?? 0) > 1 && (isAdmin || (schema?.allowedDepartments?.length ?? 0) > 1)) ||
-      (isAdmin && (schema?.unassignedCount ?? 0) > 0));
+    Boolean(schema) && ((schema?.departments?.length ?? 0) > 1 || (isAdmin && (schema?.unassignedCount ?? 0) > 0));
+  const departmentNameById = useMemo(() => new Map((schema?.departments ?? []).map((d) => [d._id, d.name])), [schema]);
   const sharedWithNobody = Boolean(schema) && isAdmin && (schema?.departments?.length ?? 0) === 0;
 
   const columns = useMemo<DataTableColumn<RecordRow>[]>(() => {
@@ -244,14 +243,27 @@ export default function RecordListPage() {
             {
               id: "_department",
               header: "Visible to",
-              width: 120,
+              width: 160,
               mobile: "subtitle" as const,
-              cell: (row: RecordRow) =>
-                row._department ? (
-                  <Badge variant="default" c={row._departmentId ? undefined : "dimmed"}>
-                    {String(row._department)}
-                  </Badge>
-                ) : null,
+              cell: (row: RecordRow) => {
+                const ids = (row._departmentIds as string[] | undefined) ?? [];
+                if (!ids.length) {
+                  return row._department ? (
+                    <Badge variant="default" c="dimmed">
+                      {String(row._department)}
+                    </Badge>
+                  ) : null;
+                }
+                return (
+                  <Group gap={4} wrap="nowrap">
+                    {ids.map((id) => (
+                      <Badge key={id} variant="default">
+                        {departmentNameById.get(id) ?? "Deleted department"}
+                      </Badge>
+                    ))}
+                  </Group>
+                );
+              },
             },
           ]
         : []),
@@ -285,7 +297,7 @@ export default function RecordListPage() {
       },
     ];
     return [...fromSchema, ...system];
-  }, [schema, showDepartment]);
+  }, [schema, showDepartment, departmentNameById]);
 
   const filterFields = useMemo<FilterField[]>(() => {
     if (!schema) return [];
@@ -312,7 +324,7 @@ export default function RecordListPage() {
         name: "_department",
         label: "Visible to",
         kind: "department",
-        options: (schema.allowedDepartments ?? []).map((d) => ({ value: d._id, label: d.name })),
+        options: (schema.departments ?? []).map((d) => ({ value: d._id, label: d.name })),
       });
     }
     return fields;

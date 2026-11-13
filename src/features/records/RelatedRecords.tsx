@@ -23,7 +23,19 @@ type Group = { schema: TableSchemaInfo; column: RecordColumn; title: string; via
 // customer's orders. Worked out from the tables the user can see (their
 // "Link to table" columns), and loaded through the normal list, so the
 // user's departments and "Own only" apply. Empty groups share one line.
-export function RelatedRecords({ table, recordId, recordName }: { table: string; recordId: string; recordName: string }) {
+// departmentIds: the record's "Visible to"; records added from here start with
+// the same (a task added to a project for Engineering and Design is seen by both)
+export function RelatedRecords({
+  table,
+  recordId,
+  recordName,
+  departmentIds,
+}: {
+  table: string;
+  recordId: string;
+  recordName: string;
+  departmentIds: string[];
+}) {
   const navigate = useNavigate();
   const { data: tables = [] } = useTables();
   // phones: the name and one more column, no sideways scrolling
@@ -99,7 +111,7 @@ export function RelatedRecords({ table, recordId, recordName }: { table: string;
             actions={
               <Group gap="xs">
                 {canAdd(g) && (
-                  <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} component={Link} to={addLink(g)}>
+                  <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} component={Link} to={addLink(g)} state={{ departmentIds }}>
                     Add
                   </Button>
                 )}
@@ -183,7 +195,7 @@ export function RelatedRecords({ table, recordId, recordName }: { table: string;
                 <>
                   {" "}
                   (
-                  <Anchor component={Link} to={addLink(g)} size="sm">
+                  <Anchor component={Link} to={addLink(g)} state={{ departmentIds }} size="sm">
                     add
                   </Anchor>
                   )

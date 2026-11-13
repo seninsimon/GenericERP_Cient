@@ -6,6 +6,7 @@ import {
   Button,
   Drawer,
   Grid,
+  Group,
   Menu,
   SimpleGrid,
   Skeleton,
@@ -103,7 +104,7 @@ export default function RecordDetailPage() {
     const prefill = Object.fromEntries(
       columns.filter((c) => !FILE_TYPES.includes(c.type)).map((c) => [c.name, record[c.name]])
     );
-    navigate(newRecordPath(table), { state: { prefill, departmentId: record._departmentId } });
+    navigate(newRecordPath(table), { state: { prefill, departmentIds: record._departmentIds } });
   };
 
   const askDelete = () =>
@@ -136,7 +137,13 @@ export default function RecordDetailPage() {
               {/* "Visible to": only interesting when the table is shared with several departments */}
               {record._departmentName && (schema?.departments?.length ?? 0) > 1 ? (
                 <Tooltip label="Visible to">
-                  <Badge variant="default">{String(record._departmentName)}</Badge>
+                  <Group gap={4}>
+                    {((record._departmentIds as string[] | undefined) ?? []).map((d) => (
+                      <Badge key={d} variant="default">
+                        {schema?.departments?.find((x) => x._id === d)?.name ?? "Deleted department"}
+                      </Badge>
+                    ))}
+                  </Group>
                 </Tooltip>
               ) : record._departmentId === null && schema?.departments?.length ? (
                 <Tooltip label="Not in any department yet: only admins can see it">
@@ -244,7 +251,9 @@ export default function RecordDetailPage() {
               )}
   </Section>
             {/* records elsewhere that link here: a project's tasks, a customer's orders */}
-            {!loading && <RelatedRecords table={table} recordId={id} recordName={name} />}
+            {!loading && (
+              <RelatedRecords table={table} recordId={id} recordName={name} departmentIds={(record._departmentIds as string[] | undefined) ?? []} />
+            )}
           </Stack>
         </Grid.Col>
 

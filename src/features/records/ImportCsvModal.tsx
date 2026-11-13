@@ -92,7 +92,7 @@ export function ImportCsvModal({
             <List.Item>First row: column labels (or names), the same as an export.</List.Item>
             {showDepartment && (
               <List.Item>
-                Optional <b>Visible to</b> column with a department name.
+                Optional <b>Visible to</b> column with department names, separated by ; (e.g. Sales; Support).
               </List.Item>
             )}
             <List.Item>Linked records: their display name (or id).</List.Item>

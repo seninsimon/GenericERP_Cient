@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Button, Grid, Group, Paper, Select, Skeleton, Stack, Text } from "@mantine/core";
+import { Box, Button, Grid, Group, MultiSelect, Paper, Skeleton, Stack, Text } from "@mantine/core";
 import { useHotkeys } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
@@ -32,7 +32,7 @@ import {
 } from "../../features/records/schema";
 
 type Values = Record<string, unknown>;
-type Snapshot = { values: Values; departmentId: string | null; files: Record<string, string[]> };
+type Snapshot = { values: Values; departmentIds: string[]; files: Record<string, string[]> };
 
 const asUrls = (value: unknown): string[] =>
   (Array.isArray(value) ? value : value ? [value] : []).filter((v): v is string => typeof v === "string");
@@ -60,17 +60,19 @@ export default function RecordFormPage() {
   const fileColumns = useMemo(() => columns.filter((c) => FILE_TYPES.includes(c.type)), [columns]);
 
   /* ---------- department ---------- */
+  // any of the table's departments (a project for Engineering and Design);
+  // the server makes sure one of them is the user's own
   const departmentOptions = useMemo(
-    () => (schema?.allowedDepartments ?? []).map((d) => ({ value: d._id, label: d.name })),
+    () => (schema?.departments ?? []).map((d) => ({ value: d._id, label: d.name })),
     [schema]
   );
-  // "Visible to" is only asked when there's a real choice: with one department
-  // the record goes there automatically, with none it's admins-only
+  // "Visible to" is only asked when the table has several departments: with
+  // one the record goes there automatically, with none it's admins-only
   const showDepartment = departmentOptions.length > 1;
 
   /* ---------- form state ---------- */
   const [values, setValues] = useState<Values>({});
-  const [departmentId, setDepartmentId] = useState<string | null>(null);
+  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [existingFiles, setExistingFiles] = useState<Record<string, string[]>>({});
   const [pendingFiles, setPendingFiles] = useState<Record<string, File[]>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -82,7 +84,7 @@ export default function RecordFormPage() {
   // initialise once the schema (and the record, when editing) are loaded
   useEffect(() => {
     if (!schema || initial || (editing && !record)) return;
-    const prefill = (location.state as { prefill?: Values; departmentId?: string | null } | null) ?? {};
+    const prefill = (location.state as { prefill?: Values; departmentIds?: string[] } | null) ?? {};
     // editing: the record; duplicating: the copy; new: defaults + ?column=value
     const source: Values = editing
       ? record!
@@ -96,23 +98,30 @@ export default function RecordFormPage() {
       else if (SERVER_TYPES.includes(column.type) && !editing) continue;
       else if (source[column.name] !== undefined) nextValues[column.name] = source[column.name];
     }
-    const options = schema.allowedDepartments ?? [];
-    const nextDepartment = editing
-      ? ((record!._departmentId as string | null) ?? null)
-      : (prefill.departmentId && options.some((d) => d._id === prefill.departmentId) ? prefill.departmentId : null) ??
-        (options.length === 1 ? options[0]._id : null);
+    // editing: as saved; a copy, or a record added from a related list: the
+    // same departments (those of this table); new: the user's one department
+    const onTable = new Set((schema.departments ?? []).map((d) => d._id));
+    const mine = schema.allowedDepartments ?? [];
+    const inherited = (prefill.departmentIds ?? []).filter((d) => onTable.has(d));
+    const nextDepartments = editing
+      ? ((record!._departmentIds as string[] | undefined) ?? [record!._departmentId as string | null].filter((d): d is string => Boolean(d)))
+      : inherited.length
+        ? inherited
+        : mine.length === 1
+          ? [mine[0]._id]
+          : [];
 
     setValues(nextValues);
     setExistingFiles(nextFiles);
-    setDepartmentId(nextDepartment);
-    setInitial({ values: nextValues, departmentId: nextDepartment, files: nextFiles });
+    setDepartmentIds(nextDepartments);
+    setInitial({ values: nextValues, departmentIds: nextDepartments, files: nextFiles });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schema, record, editing, initial, location.state]);
 
   const dirty =
     Boolean(initial) &&
     (JSON.stringify(values) !== JSON.stringify(initial!.values) ||
-      departmentId !== initial!.departmentId ||
+      [...departmentIds].sort().join() !== [...initial!.departmentIds].sort().join() ||
       JSON.stringify(existingFiles) !== JSON.stringify(initial!.files) ||
       Object.values(pendingFiles).some((files) => files.length > 0) ||
       lineItems.dirty);
@@ -123,7 +132,7 @@ export default function RecordFormPage() {
     id: editing ? id : undefined,
     columns,
     values,
-    departmentId,
+    departmentIds,
     lineItems,
     enabled: Boolean(initial) && Boolean(editing ? schema?.permissions?.edit : schema?.permissions?.create),
   });
@@ -180,7 +189,7 @@ export default function RecordFormPage() {
         : values[column.name];
       if (column.required && isMissing(column, value)) missing[column.name] = `${columnLabel(column)} is required`;
     }
-    if (showDepartment && !departmentId) missing._departmentId = "Choose who can see this record";
+    if (showDepartment && !departmentIds.length) missing._departmentId = "Choose who can see this record";
     if (Object.keys(missing).length) {
       setErrors(missing);
       focusFirstError(missing);
@@ -203,7 +212,7 @@ export default function RecordFormPage() {
         }
         payload[column.name] = column.type === "image" || column.type === "file" ? (urls[0] ?? null) : urls;
       }
-      if (showDepartment || !editing) payload._departmentId = departmentId;
+      if (showDepartment || !editing) payload._departmentIds = departmentIds;
       const lines = lineItems.changes();
       if (lines.payload) payload._children = lines.payload;
       linesWhere.current = lines.where;
@@ -319,17 +328,18 @@ export default function RecordFormPage() {
                 <Grid gutter="lg">
                   {showDepartment && (
                     <Grid.Col span={{ base: 12, md: 6 }}>
-                      <Select
+                      <MultiSelect
                         id="field-_departmentId"
                         label="Visible to"
-                        description="Which department can see this record"
-                        placeholder="Choose a department"
+                        description="Which departments can see this record"
+                        placeholder={departmentIds.length ? undefined : "Choose departments"}
                         data={departmentOptions}
-                        value={departmentId}
+                        value={departmentIds}
                         onChange={(v) => {
-                          setDepartmentId(v);
+                          setDepartmentIds(v);
                           clearError("_departmentId");
                         }}
+                        clearable={false}
                         withAsterisk
                         error={errors._departmentId}
                       />

@@ -14,7 +14,7 @@ export function useSavePreview({
   id,
   columns,
   values,
-  departmentId,
+  departmentIds,
   lineItems,
   enabled,
 }: {
@@ -22,7 +22,7 @@ export function useSavePreview({
   id?: string;
   columns: RecordColumn[];
   values: Record<string, unknown>;
-  departmentId: string | null;
+  departmentIds: string[];
   lineItems: LineItems;
   enabled: boolean;
 }) {
@@ -35,7 +35,7 @@ export function useSavePreview({
       body[c.name] = values[c.name];
     }
   }
-  if (departmentId) body._departmentId = departmentId;
+  if (departmentIds.length) body._departmentIds = departmentIds;
   const children = lineItems.changes().payload;
   if (children) body._children = children;
   const [debounced] = useDebouncedValue(JSON.stringify(body), 500);
