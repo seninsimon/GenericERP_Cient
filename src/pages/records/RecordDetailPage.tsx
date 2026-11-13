@@ -41,6 +41,7 @@ import {
   type RecordColumn,
   type TableSchemaInfo,
 } from "../../features/records/schema";
+import { useAppCrumb } from "../../features/apps/appMenu";
 
 function DetailValue({
   column,
@@ -70,6 +71,7 @@ function DetailValue({
 
 export default function RecordDetailPage() {
   const { table = "", id = "" } = useParams();
+  const appCrumb = useAppCrumb(); // "HR & leave" when inside an app
   const navigate = useNavigate();
   const title = tableTitle(table);
   const listPath = tablePath(table);
@@ -126,7 +128,7 @@ export default function RecordDetailPage() {
   return (
     <Page
       title={loading ? title : `${name} · ${title}`}
-      breadcrumbs={[{ label: "Tables" }, { label: title, to: listPath }, { label: loading ? "…" : name }]}
+      breadcrumbs={[appCrumb, { label: title, to: listPath }, { label: loading ? "…" : name }]}
       width="wide"
     >
       <PageHeader
@@ -135,7 +137,7 @@ export default function RecordDetailPage() {
           record && (
             <>
               {/* "Visible to": only interesting when the table is shared with several departments */}
-              {record._departmentName && (schema?.departments?.length ?? 0) > 1 ? (
+              {schema?.byDepartment === false ? null : record._departmentName && (schema?.departments?.length ?? 0) > 1 ? (
                 <Tooltip label="Visible to">
                   <Group gap={4}>
                     {((record._departmentIds as string[] | undefined) ?? []).map((d) => (

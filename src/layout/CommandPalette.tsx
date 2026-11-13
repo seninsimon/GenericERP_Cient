@@ -5,6 +5,8 @@ import { IconLogout, IconMoon, IconPlus, IconSearch, IconTable, IconUser } from 
 import { useNavigate } from "react-router-dom";
 
 import { useTables } from "../api/reactQueryHooks/useTables";
+import { AppIcon } from "../features/apps/AppIcon";
+import { appPath, useAppMenu } from "../features/apps/appMenu";
 import { useCurrentUser } from "../auth/AuthContext";
 import { ADMIN_NAV, MAIN_NAV, newRecordPath, tablePath, tableTitle } from "./nav";
 
@@ -13,12 +15,25 @@ export default function CommandPalette() {
   const navigate = useNavigate();
   const { isAdmin, logout } = useCurrentUser();
   const { data: tables = [] } = useTables();
+  const { apps, appMode } = useAppMenu();
   const { setColorScheme } = useMantineColorScheme();
   const computed = useComputedColorScheme("light");
 
   const actions = useMemo<SpotlightActionGroupData[]>(() => {
     const list = tables as { tableName: string; permissions?: { create?: boolean } }[];
     const groups: SpotlightActionGroupData[] = [
+      {
+        // with many apps the sidebar shows one at a time: jump straight to one
+        group: "Apps",
+        actions: (appMode ? apps : []).map((a) => ({
+          id: `app:${a.key}`,
+          label: a.name,
+          description: "Open app",
+          keywords: ["app", ...a.tables.map((t) => t.tableName)],
+          leftSection: <AppIcon name={a.icon} size={22} />,
+          onClick: () => navigate(appPath(a.key)),
+        })),
+      },
       {
         group: "Tables",
         actions: list.map((t) => ({
@@ -79,7 +94,7 @@ export default function CommandPalette() {
       },
     ];
     return groups.filter((g) => g.actions.length);
-  }, [tables, isAdmin, navigate, computed, setColorScheme, logout]);
+  }, [tables, apps, appMode, isAdmin, navigate, computed, setColorScheme, logout]);
 
   return (
     <Spotlight

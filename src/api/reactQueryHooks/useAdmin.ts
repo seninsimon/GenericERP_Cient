@@ -33,9 +33,20 @@ export type Role = {
   description: string;
   isAdmin: boolean;
   permissions: PermissionMap;
+  // an app's role ("Projects · Manager"): comes and goes with the app
+  appKey?: string | null;
+  appLevel?: string | null;
   userCount: number;
   createdAt: string;
   updatedAt: string;
+};
+
+// "App access" on a person: an app (as in the launcher) and the levels it offers
+export type AppAccessOption = {
+  key: string;
+  name: string;
+  icon: string;
+  levels: { level: string; label: string; description: string }[];
 };
 
 export type User = {
@@ -50,6 +61,8 @@ export type User = {
   updatedAt: string;
   role: { _id: string; name: string; isAdmin: boolean; permissions: PermissionMap };
   departments: DepartmentRef[];
+  // app -> level: { projects: "manager", company: "staff" }
+  appAccess?: Record<string, string>;
 };
 
 export type UserInput = {
@@ -61,6 +74,10 @@ export type UserInput = {
   roleId?: string;
   departmentIds?: string[];
   isActive?: boolean;
+  // app -> level, or null for no access (apps left out keep theirs)
+  appAccess?: Record<string, string | null>;
+  // new people: their entry in the People directory too (when it's installed)
+  addToDirectory?: boolean;
 };
 
 export type RoleInput = {
@@ -94,14 +111,21 @@ export const useCreateUser = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: UserInput) =>
-      (await api.post<{ message: string; user: User }>("/users", data)).data,
-    onSuccess: () => {
+      (await api.post<{ message: string; user: User; directory: { table: string; id: string } | null }>("/users", data)).data,
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["users"] });
       qc.invalidateQueries({ queryKey: ["roles"] });
       qc.invalidateQueries({ queryKey: ["departments"] });
-      notifySuccess("User created", "The user account was created");
+      if (res.directory) {
+        qc.invalidateQueries({ queryKey: ["tableData", res.directory.table] });
+        qc.invalidateQueries({ queryKey: ["tile"] });
+      }
+      notifySuccess(
+        "Person added",
+        res.directory ? "Their login and their entry in the People directory are ready" : "Their login is ready"
+      );
     },
-    onError: notifyError("Could not create user"),
+    onError: notifyError("Couldn't add the person"),
   });
 };
 
@@ -133,6 +157,12 @@ export const useDeleteUser = () => {
     onError: notifyError("Could not delete user"),
   });
 };
+
+export const useAppAccessOptions = () =>
+  useQuery({
+    queryKey: ["appAccessOptions"],
+    queryFn: async () => (await api.get<AppAccessOption[]>("/users/app-access")).data,
+  });
 
 /* ---------------- roles ---------------- */
 

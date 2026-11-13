@@ -10,6 +10,7 @@ import AppLayout from "./layout/AppLayout";
 
 // pages load on demand so the first download stays small
 const HomePage = lazy(() => import("./pages/HomePage"));
+const AppPage = lazy(() => import("./pages/AppPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const JobsPage = lazy(() => import("./pages/JobsPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
@@ -50,6 +51,7 @@ export default function App() {
               <Routes>
                 <Route element={<AppLayout />}>
                   <Route index element={<HomePage />} />
+                  <Route path="apps/:appKey" element={<AppPage />} />
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="jobs" element={<JobsPage />} />
 

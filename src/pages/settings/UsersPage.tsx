@@ -3,11 +3,13 @@ import {
   Avatar,
   Badge,
   Button,
+  Checkbox,
   Group,
   Menu,
   Modal,
   MultiSelect,
   PasswordInput,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Stack,
@@ -15,6 +17,7 @@ import {
   Text,
   TextInput,
   Tooltip,
+  useMantineTheme,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useMediaQuery } from "@mantine/hooks";
@@ -22,15 +25,19 @@ import { IconEdit, IconKey, IconPlus, IconTrash, IconUserCheck, IconUserOff, Ico
 
 import { errorMessage } from "../../api/api";
 import {
+  useAppAccessOptions,
   useCreateUser,
   useDeleteUser,
   useDepartments,
   useRoles,
   useUpdateUser,
   useUsers,
+  type AppAccessOption,
   type User,
   type UserInput,
 } from "../../api/reactQueryHooks/useAdmin";
+import { AppIcon } from "../../features/apps/AppIcon";
+import { useTables } from "../../api/reactQueryHooks/useTables";
 import { useCurrentUser } from "../../auth/AuthContext";
 import { DataTable, type DataTableColumn } from "../../components/data-table";
 import { confirmDanger } from "../../components/ui/confirm";
@@ -51,6 +58,8 @@ type FormValues = {
   password: string;
   roleId: string;
   departmentIds: string[];
+  // app -> level ("none" = no access)
+  appAccess: Record<string, string>;
   isActive: boolean;
 };
 
@@ -62,8 +71,56 @@ const EMPTY: FormValues = {
   password: "",
   roleId: "",
   departmentIds: [],
+  appAccess: {},
   isActive: true,
 };
+
+const NONE = "none";
+
+// App access: one row per app, No access / Staff / Manager.
+function AppAccessFields({
+  options,
+  value,
+  onChange,
+}: {
+  options: AppAccessOption[];
+  value: Record<string, string>;
+  onChange: (next: Record<string, string>) => void;
+}) {
+  const theme = useMantineTheme();
+  return (
+    <Stack gap={6}>
+      <div>
+        <Text size="sm" fw={500}>
+          App access
+        </Text>
+        <Text size="xs" c="dimmed">
+          What they can do in each app. Staff: everyday work, and only their own personal records (leave, time logs). Manager:
+          everything, including approvals.
+        </Text>
+      </div>
+      {options.map((o) => (
+        <Group key={o.key} justify="space-between" wrap="wrap" gap="xs" py={4}>
+          <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+            <AppIcon name={o.icon} size={28} />
+            <Text size="sm" truncate>
+              {o.name}
+            </Text>
+          </Group>
+          <SegmentedControl
+            size="xs"
+            aria-label={`Access to ${o.name}`}
+            value={value[o.key] ?? NONE}
+            onChange={(level) => onChange({ ...value, [o.key]: level })}
+            // given access stands out; "No access" stays neutral
+            color={(value[o.key] ?? NONE) === NONE ? undefined : theme.primaryColor}
+            data={[{ value: NONE, label: "No access" }, ...o.levels.map((l) => ({ value: l.level, label: l.label }))]}
+          />
+        </Group>
+      ))}
+    </Stack>
+  );
+}
 
 /* ---------------- create / edit ---------------- */
 
@@ -72,6 +129,14 @@ function UserModal({ opened, onClose, user }: { opened: boolean; onClose: () => 
   const { user: me } = useCurrentUser();
   const { data: roles = [] } = useRoles();
   const { data: departments = [] } = useDepartments();
+  const { data: accessOptions = [] } = useAppAccessOptions();
+  const { data: tables = [] } = useTables();
+  // with the People directory installed, a new person gets their entry there too
+  const hasDirectory = (tables as { blueprintKey?: string | null }[]).some((t) => t.blueprintKey === "people.employees");
+  const [addToDirectory, setAddToDirectory] = useState(true);
+  // the main role: Admin, Member (rights from app access) or a custom role; app roles come through app access
+  const mainRoles = roles.filter((r) => !r.appKey);
+  const memberId = roles.find((r) => r.name.toLowerCase() === "member" && !r.appKey)?._id ?? "";
   const create = useCreateUser();
   const update = useUpdateUser();
   const isSelf = user?._id === me._id;
@@ -103,13 +168,14 @@ function UserModal({ opened, onClose, user }: { opened: boolean; onClose: () => 
             password: "",
             roleId: user.role._id,
             departmentIds: user.departments.map((d) => d._id),
+            appAccess: user.appAccess ?? {},
             isActive: user.isActive,
           }
-        : EMPTY
+        : { ...EMPTY, roleId: memberId }
     );
     form.clearErrors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened, user]);
+  }, [opened, user, memberId]);
 
   const selectedRole = roles.find((r) => r._id === form.values.roleId);
 
@@ -123,7 +189,12 @@ function UserModal({ opened, onClose, user }: { opened: boolean; onClose: () => 
       departmentIds: v.departmentIds,
       isActive: v.isActive,
     };
+    // every app's level (admins can do everything anyway, so theirs is left as it is)
+    if (!roles.find((r) => r._id === v.roleId)?.isAdmin) {
+      data.appAccess = Object.fromEntries(accessOptions.map((o) => [o.key, v.appAccess[o.key] && v.appAccess[o.key] !== NONE ? v.appAccess[o.key] : null]));
+    }
     if (v.password) data.password = v.password;
+    if (!user && hasDirectory) data.addToDirectory = addToDirectory;
     try {
       if (user) await update.mutateAsync({ id: user._id, data });
       else await create.mutateAsync(data);
@@ -137,7 +208,7 @@ function UserModal({ opened, onClose, user }: { opened: boolean; onClose: () => 
     <Modal
       opened={opened}
       onClose={onClose}
-      title={user ? `Edit ${user.fullName || user.username}` : "New user"}
+      title={user ? `Edit ${user.fullName || user.username}` : "Add a person"}
       size="lg"
       fullScreen={fullScreen}
     >
@@ -174,9 +245,9 @@ function UserModal({ opened, onClose, user }: { opened: boolean; onClose: () => 
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
             <Select
               label="Role"
-              description="What the user can do in each table"
+              description="Most people are Members: what they can do comes from App access below"
               withAsterisk
-              data={roles.map((r) => ({ value: r._id, label: r.isAdmin ? `${r.name} (full access)` : r.name }))}
+              data={mainRoles.map((r) => ({ value: r._id, label: r.isAdmin ? `${r.name} (can do everything)` : r.name }))}
               disabled={isSelf}
               {...form.getInputProps("roleId")}
             />
@@ -185,7 +256,7 @@ function UserModal({ opened, onClose, user }: { opened: boolean; onClose: () => 
               description={
                 selectedRole?.isAdmin
                   ? "Admins see every department anyway"
-                  : "The user only sees tables and records of these departments"
+                  : "The team they're in"
               }
               data={departments.map((d) => ({ value: d._id, label: d.name }))}
               searchable
@@ -193,6 +264,23 @@ function UserModal({ opened, onClose, user }: { opened: boolean; onClose: () => 
               {...form.getInputProps("departmentIds")}
             />
           </SimpleGrid>
+
+          {!selectedRole?.isAdmin && accessOptions.length > 0 && (
+            <AppAccessFields
+              options={accessOptions}
+              value={form.values.appAccess}
+              onChange={(next) => form.setFieldValue("appAccess", next)}
+            />
+          )}
+
+          {!user && hasDirectory && (
+            <Checkbox
+              label="Also add them to the People directory"
+              description="Their entry there gets this name, email, phone and department, linked to this login"
+              checked={addToDirectory}
+              onChange={(e) => setAddToDirectory(e.currentTarget.checked)}
+            />
+          )}
 
           <Switch
             label="Active"
@@ -206,7 +294,7 @@ function UserModal({ opened, onClose, user }: { opened: boolean; onClose: () => 
               Cancel
             </Button>
             <Button type="submit" loading={create.isPending || update.isPending}>
-              {user ? "Save user" : "Create user"}
+              {user ? "Save" : "Add person"}
             </Button>
           </Group>
         </Stack>
@@ -269,6 +357,7 @@ function ResetPasswordModal({ user, onClose }: { user: User | null; onClose: () 
 export default function UsersPage() {
   const { user: me } = useCurrentUser();
   const { data: users = [], isLoading, isFetching, error, refetch } = useUsers();
+  const { data: accessOptions = [] } = useAppAccessOptions();
   const update = useUpdateUser();
   const remove = useDeleteUser();
   const [modal, setModal] = useState<{ user: User | null } | null>(null);
@@ -314,6 +403,46 @@ export default function UsersPage() {
         mobile: "subtitle",
         accessor: (u) => u.role?.name ?? "",
         cell: (u) => <Badge color={u.role?.isAdmin ? "red" : "blue"}>{u.role?.name}</Badge>,
+      },
+      {
+        id: "apps",
+        header: "Apps",
+        width: 320,
+        accessor: (u) => Object.keys(u.appAccess ?? {}).join(", "),
+        cell: (u) => {
+          if (u.role?.isAdmin) {
+            return (
+              <Text span c="dimmed" size="sm">
+                All (admin)
+              </Text>
+            );
+          }
+          const entries = Object.entries(u.appAccess ?? {}).map(([key, level]) => {
+            const name = accessOptions.find((o) => o.key === key)?.name ?? key;
+            return `${name}: ${level.charAt(0).toUpperCase()}${level.slice(1)}`;
+          });
+          if (!entries.length) {
+            return (
+              <Text span c="dimmed" size="sm">
+                None
+              </Text>
+            );
+          }
+          return (
+            <Group gap={4} wrap="nowrap">
+              {entries.slice(0, 2).map((e) => (
+                <Badge key={e} variant="default">
+                  {e}
+                </Badge>
+              ))}
+              {entries.length > 2 && (
+                <Tooltip label={entries.slice(2).join(", ")}>
+                  <Badge variant="default">+{entries.length - 2}</Badge>
+                </Tooltip>
+              )}
+            </Group>
+          );
+        },
       },
       {
         id: "departments",
@@ -384,7 +513,7 @@ export default function UsersPage() {
           ),
       },
     ],
-    [me._id]
+    [me._id, accessOptions]
   );
 
   const toggleActive = (u: User) => {
@@ -420,7 +549,7 @@ export default function UsersPage() {
         meta={users.length ? <Badge variant="default">{pluralize(users.length, "user")}</Badge> : undefined}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={() => setModal({ user: null })}>
-            New user
+            Add person
           </Button>
         }
       />
@@ -470,7 +599,7 @@ export default function UsersPage() {
               title="No users yet"
               action={
                 <Button leftSection={<IconPlus size={16} />} onClick={() => setModal({ user: null })}>
-                  New user
+                  Add person
                 </Button>
               }
             />

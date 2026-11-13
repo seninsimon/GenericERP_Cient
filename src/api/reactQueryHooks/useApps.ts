@@ -22,6 +22,8 @@ export type InstallOptions = {
   departmentIds?: string[];
   sampleData?: boolean;
   conflicts?: Record<string, "new" | "use">;
+  // an organization type's starter departments, as edited (created or reused by name)
+  departments?: string[];
 };
 
 export type PlannedTable = {
@@ -40,7 +42,8 @@ export type PlannedTable = {
 export type InstallPlan = {
   apps: { key: string; name: string; status: "install" | "installed"; pulledIn: boolean }[];
   tables: PlannedTable[];
-  roles: { name: string; action: "create" | "extend"; tables: string[] }[];
+  roles: { name: string; level: string; action: "create" | "extend"; tables: string[] }[];
+  departments: { name: string; exists: boolean }[];
   hasSample: boolean;
 };
 
@@ -70,7 +73,7 @@ export const useInstallPlan = (apps: string[] | null, options: InstallOptions, d
 
 // apps change tables, roles and the sidebar
 const refreshAll = (qc: ReturnType<typeof useQueryClient>) => {
-  for (const key of ["apps", "tables", "schema", "roles", "tableData", "related"]) qc.invalidateQueries({ queryKey: [key] });
+  for (const key of ["apps", "tables", "schema", "roles", "users", "appAccessOptions", "tableData", "related"]) qc.invalidateQueries({ queryKey: [key] });
 };
 
 const fail = (title: string) => (error: unknown) =>

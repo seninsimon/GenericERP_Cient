@@ -8,6 +8,7 @@ import { formatCompact, formatNumber } from "../lib/format";
 
 type Board = {
   app: string;
+  launcher: string; // the app page it belongs to (an app, or its group)
   name: string;
   tiles: { label: string; table: string; filters: ListFilter[] }[];
   breakdown: { label: string; table: string; column: string; options: string[] } | null;
@@ -114,21 +115,26 @@ function Breakdown({ label, table, column, options }: NonNullable<Board["breakdo
   );
 }
 
-// Home: the counts of each installed app ("Open tasks", "Overdue invoices").
-export function AppDashboards() {
+// The counts of the installed apps ("Open tasks", "Overdue invoices"): all
+// of them on Home, or one app's on its page (launcher = that app's key).
+export function AppDashboards({ launcher }: { launcher?: string } = {}) {
   const { data: boards = [] } = useQuery({
     queryKey: ["dashboards"],
     queryFn: async () => (await api.get<Board[]>("/apps/dashboards")).data,
     staleTime: 60_000,
   });
-  if (!boards.length) return null;
+  const shown = launcher ? boards.filter((b) => b.launcher === launcher) : boards;
+  if (!shown.length) return null;
   return (
     <Stack gap="lg">
-      {boards.map((b) => (
+      {shown.map((b) => (
         <Box key={b.app}>
-          <Title order={4} mb="sm">
-            {b.name}
-          </Title>
+          {/* on an app's own page its one dashboard needs no heading */}
+          {(!launcher || shown.length > 1) && (
+            <Title order={4} mb="sm">
+              {b.name}
+            </Title>
+          )}
           {/* tiles, and the breakdown beside them on wide screens */}
           <SimpleGrid cols={{ base: 1, md: b.breakdown && b.tiles.length ? 2 : 1 }} spacing="md">
             {b.tiles.length > 0 && (

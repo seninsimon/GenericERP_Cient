@@ -4,6 +4,7 @@ import {
   Box,
   Group,
   Kbd,
+  Menu,
   NavLink,
   ScrollArea,
   Skeleton,
@@ -15,16 +16,20 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import {
+  IconLayoutGrid,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconSearch,
+  IconSelector,
   IconTable,
 } from "@tabler/icons-react";
 import { spotlight } from "@mantine/spotlight";
-import { NavLink as RouterLink, useLocation } from "react-router-dom";
+import { NavLink as RouterLink, useLocation, useNavigate } from "react-router-dom";
 
-import { useTables } from "../api/reactQueryHooks/useTables";
 import { useCurrentUser } from "../auth/AuthContext";
+import { AppIcon } from "../features/apps/AppIcon";
+import { appIcon } from "../features/apps/appIcons";
+import { appPath, useAppMenu, useCurrentApp, type LauncherApp, type MenuTable } from "../features/apps/appMenu";
 import { usePreferences } from "../lib/preferences";
 import { ADMIN_NAV, MAIN_NAV, tablePath, tableTitle, type NavItem } from "./nav";
 import classes from "./Sidebar.module.css";
@@ -115,43 +120,82 @@ function SectionLabel({ children, collapsed }: { children: string; collapsed: bo
   );
 }
 
+// The current app at the top of its menu; opens a list to switch apps.
+function AppSwitcher({ app, apps, collapsed, onNavigate }: { app: LauncherApp; apps: LauncherApp[]; collapsed: boolean; onNavigate: () => void }) {
+  const navigate = useNavigate();
+  const go = (to: string) => {
+    navigate(to);
+    onNavigate();
+  };
+  return (
+    <Menu position={collapsed ? "right-start" : "bottom-start"} width={260} shadow="md" withinPortal>
+      <Menu.Target>
+        {collapsed ? (
+          <UnstyledButton className={classes.railLink} aria-label={`${app.name}: switch app`}>
+            <AppIcon name={app.icon} size={30} />
+          </UnstyledButton>
+        ) : (
+          <UnstyledButton className={classes.appSwitcher} aria-label={`${app.name}: switch app`}>
+            <Group gap={10} wrap="nowrap">
+              <AppIcon name={app.icon} size={30} />
+              <Text fw={600} size="sm" truncate style={{ flex: 1 }}>
+                {app.name}
+              </Text>
+              <IconSelector size={16} color="var(--mantine-color-dimmed)" />
+            </Group>
+          </UnstyledButton>
+        )}
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item leftSection={<IconLayoutGrid size={16} />} onClick={() => go("/")}>
+          All apps
+        </Menu.Item>
+        <Menu.Divider />
+        {apps.map((a) => {
+          const I = appIcon(a.icon);
+          return (
+            <Menu.Item
+              key={a.key}
+              leftSection={<I size={16} stroke={1.75} />}
+              onClick={() => go(appPath(a.key))}
+              fw={a.key === app.key ? 600 : undefined}
+            >
+              {a.name}
+            </Menu.Item>
+          );
+        })}
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
+
 export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean; onNavigate: () => void }) {
   const { isAdmin } = useCurrentUser();
   const { setPreference } = usePreferences();
   const location = useLocation();
-  const { data: tables = [], isLoading } = useTables();
+  const { apps, appOfTable, appMode, isLoading } = useAppMenu();
+  const current = useCurrentApp(apps, appOfTable);
   const [query, setQuery] = useState("");
 
-  const menuTables = useMemo(
-    () =>
-      (tables as { tableName: string; showInMenu?: boolean; group?: string | null }[])
-        .filter((t) => t.showInMenu !== false)
-        .filter((t) => !query || t.tableName.toLowerCase().includes(query.toLowerCase())),
-    [tables, query]
-  );
-
-  // tables an app made are grouped under it ("Company", "Projects", ...), your
-  // own tables under "Tables" (last). With only one group there are no headings.
+  // What the menu lists:
+  //  - few apps: every table, grouped by app (no headings with just one)
+  //  - many apps, inside one: that app's tables, then the ones it also uses
+  //  - many apps, elsewhere (Home, settings): the apps
+  const app = appMode ? current : null;
+  const showApps = appMode && !app;
   const groups = useMemo(() => {
-    const order: string[] = [];
-    const byGroup = new Map<string, typeof menuTables>();
-    for (const t of menuTables) {
-      const name = t.group ?? "";
-      if (!byGroup.has(name)) {
-        byGroup.set(name, []);
-        if (name) order.push(name);
-      }
-      byGroup.get(name)!.push(t);
-    }
-    const sorted = [...order.filter((g) => g === "Company"), ...order.filter((g) => g !== "Company")];
-    if (byGroup.has("")) sorted.push("");
-    return sorted.map((name) => ({ name: name || "Tables", tables: byGroup.get(name)! }));
-  }, [menuTables]);
-  const grouped = groups.length > 1;
+    const match = (t: MenuTable) => !query || t.tableName.toLowerCase().includes(query.toLowerCase());
+    const pick = (name: string, tables: MenuTable[]) => ({ name, tables: tables.filter(match) });
+    if (app) return [pick("", app.tables), pick("Also used", app.alsoUsed)].filter((g) => g.tables.length);
+    if (showApps) return [];
+    return apps.map((a) => pick(a.name, a.tables)).filter((g) => g.tables.length);
+  }, [apps, app, showApps, query]);
+  const listed = app ? app.tables.length + app.alsoUsed.length : showApps ? 0 : apps.reduce((n, a) => n + a.tables.length, 0);
+  const grouped = !app && groups.length > 1;
 
   const badges = useMemo(
-    () => railBadges((tables as { tableName: string }[]).map((t) => tableTitle(t.tableName))),
-    [tables]
+    () => railBadges(apps.flatMap((a) => a.tables).map((t) => tableTitle(t.tableName))),
+    [apps]
   );
 
   const isActive = (to: string) =>
@@ -215,8 +259,20 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
             <Item key={item.to} item={item} collapsed={collapsed} active={isActive(item.to)} onNavigate={onNavigate} />
           ))}
 
-          {!grouped && <SectionLabel collapsed={collapsed}>Tables</SectionLabel>}
-          {!collapsed && tables.length >= SHOW_FILTER_FROM && (
+          {app && <AppSwitcher app={app} apps={apps} collapsed={collapsed} onNavigate={onNavigate} />}
+          {showApps && <SectionLabel collapsed={collapsed}>Apps</SectionLabel>}
+          {showApps &&
+            apps.map((a) => (
+              <Item
+                key={a.key}
+                item={{ label: a.name, to: appPath(a.key), icon: appIcon(a.icon) }}
+                collapsed={collapsed}
+                active={false}
+                onNavigate={onNavigate}
+              />
+            ))}
+          {!app && !showApps && !grouped && <SectionLabel collapsed={collapsed}>Tables</SectionLabel>}
+          {!collapsed && listed >= SHOW_FILTER_FROM && (
             <TextInput
               size="xs"
               placeholder="Filter tables"
@@ -232,8 +288,8 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
                 <Skeleton key={i} h={collapsed ? 40 : 32} w={collapsed ? 40 : undefined} radius="md" />
               ))
             : groups.map((group) => (
-                <Fragment key={group.name}>
-                  {grouped && <SectionLabel collapsed={collapsed}>{group.name}</SectionLabel>}
+                <Fragment key={group.name || "app"}>
+                  {(grouped || group.name === "Also used") && <SectionLabel collapsed={collapsed}>{group.name}</SectionLabel>}
                   {group.tables.map((t) => (
                     <Item
                       key={t.tableName}
@@ -246,7 +302,7 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
                   ))}
                 </Fragment>
               ))}
-          {!isLoading && !menuTables.length && !collapsed && (
+          {!isLoading && !showApps && !groups.length && !collapsed && (
             <Text size="xs" c="dimmed" px="sm" py={4}>
               {query ? "No tables match" : "No tables yet"}
             </Text>

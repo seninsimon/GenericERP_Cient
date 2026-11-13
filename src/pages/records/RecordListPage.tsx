@@ -71,6 +71,7 @@ import {
   type RecordRow,
   type TableSchemaInfo,
 } from "../../features/records/schema";
+import { useAppCrumb } from "../../features/apps/appMenu";
 
 // an icon and a word, the word hidden on phones
 const ViewLabel = ({ icon: I, text }: { icon: Icon; text: string }) => (
@@ -111,6 +112,7 @@ const loadPeople = (search: string) =>
 
 export default function RecordListPage() {
   const { table = "" } = useParams();
+  const appCrumb = useAppCrumb(); // "HR & leave" when inside an app
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { isAdmin } = useCurrentUser();
@@ -202,7 +204,9 @@ export default function RecordListPage() {
   // "Visible to": when the table is shared with several departments (a record
   // may be visible to several); admins also while some records are admins-only
   const showDepartment =
-    Boolean(schema) && ((schema?.departments?.length ?? 0) > 1 || (isAdmin && (schema?.unassignedCount ?? 0) > 0));
+    Boolean(schema) &&
+    schema?.byDepartment !== false &&
+    ((schema?.departments?.length ?? 0) > 1 || (isAdmin && (schema?.unassignedCount ?? 0) > 0));
   const departmentNameById = useMemo(() => new Map((schema?.departments ?? []).map((d) => [d._id, d.name])), [schema]);
   const sharedWithNobody = Boolean(schema) && isAdmin && (schema?.departments?.length ?? 0) === 0;
 
@@ -346,7 +350,7 @@ export default function RecordListPage() {
     });
 
   return (
-    <Page title={title} breadcrumbs={[{ label: "Tables" }, { label: title }]}>
+    <Page title={title} breadcrumbs={[appCrumb, { label: title }]}>
       <PageHeader
         title={title}
         meta={

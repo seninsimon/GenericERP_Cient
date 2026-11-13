@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Button, Grid, Group, MultiSelect, Paper, Skeleton, Stack, Text } from "@mantine/core";
+import { Alert, Box, Button, Grid, Group, MultiSelect, Paper, Skeleton, Stack, Text, TextInput } from "@mantine/core";
 import { useHotkeys } from "@mantine/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
-import { IconDeviceFloppy, IconPointFilled } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconInfoCircle, IconPointFilled } from "@tabler/icons-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { errorMessage, uploadFiles } from "../../api/api";
@@ -30,6 +30,7 @@ import {
   recordTitle,
   type TableSchemaInfo,
 } from "../../features/records/schema";
+import { useAppCrumb } from "../../features/apps/appMenu";
 
 type Values = Record<string, unknown>;
 type Snapshot = { values: Values; departmentIds: string[]; files: Record<string, string[]> };
@@ -39,6 +40,7 @@ const asUrls = (value: unknown): string[] =>
 
 export default function RecordFormPage() {
   const { table = "", id } = useParams();
+  const appCrumb = useAppCrumb(); // "HR & leave" when inside an app
   const editing = Boolean(id);
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,7 +70,7 @@ export default function RecordFormPage() {
   );
   // "Visible to" is only asked when the table has several departments: with
   // one the record goes there automatically, with none it's admins-only
-  const showDepartment = departmentOptions.length > 1;
+  const showDepartment = schema?.byDepartment !== false && departmentOptions.length > 1;
 
   /* ---------- form state ---------- */
   const [values, setValues] = useState<Values>({});
@@ -97,6 +99,12 @@ export default function RecordFormPage() {
       // a copy gets its own number (formulas are worked out again anyway)
       else if (SERVER_TYPES.includes(column.type) && !editing) continue;
       else if (source[column.name] !== undefined) nextValues[column.name] = source[column.name];
+    }
+    // "own only": the fields that make it yours are you
+    if (!editing) {
+      for (const own of schema.ownFields ?? []) {
+        if (own.value) nextValues[own.column] = schema.columns.find((c) => c.name === own.column)?.multiple ? [own.value] : own.value;
+      }
     }
     // editing: as saved; a copy, or a record added from a related list: the
     // same departments (those of this table); new: the user's one department
@@ -285,11 +293,14 @@ export default function RecordFormPage() {
   const name = editing ? recordTitle(columns, record) : "";
   const heading = editing ? `Edit ${name}` : `New record in ${title}`;
   const ready = Boolean(schema && initial);
+  // "own only": fields locked to you, and why you can't add one yet
+  const ownFields = new Map((schema?.ownFields ?? []).map((o) => [o.column, o]));
+  const notListed = (schema?.ownFields ?? []).find((o) => o.missing)?.missing;
   const noPermission = schema && !(editing ? schema.permissions?.edit : schema.permissions?.create);
 
 
   const breadcrumbs = [
-    { label: "Tables" },
+    appCrumb,
     { label: title, to: listPath },
     ...(editing ? [{ label: name || "…", to: recordPath(table, id!) }, { label: "Edit" }] : [{ label: "New record" }]),
   ];
@@ -325,79 +336,96 @@ export default function RecordFormPage() {
                   ))}
                 </Grid>
               ) : (
-                <Grid gutter="lg">
-                  {showDepartment && (
-                    <Grid.Col span={{ base: 12, md: 6 }}>
-                      <MultiSelect
-                        id="field-_departmentId"
-                        label="Visible to"
-                        description="Which departments can see this record"
-                        placeholder={departmentIds.length ? undefined : "Choose departments"}
-                        data={departmentOptions}
-                        value={departmentIds}
-                        onChange={(v) => {
-                          setDepartmentIds(v);
-                          clearError("_departmentId");
-                        }}
-                        clearable={false}
-                        withAsterisk
-                        error={errors._departmentId}
-                      />
-                    </Grid.Col>
+                <>
+                  {!editing && notListed && (
+                    <Alert color="yellow" icon={<IconInfoCircle size={16} />} mb="md" title="You can't add this yet">
+                      {notListed}
+                    </Alert>
                   )}
-                  {/* keep the department on its own row */}
-                  {showDepartment && <Grid.Col span={6} visibleFrom="md" aria-hidden />}
-
-                  {columns.map((column) => (
-                    <Grid.Col
-                      key={column.name}
-                      id={`wrap-${column.name}`}
-                      span={{ base: 12, md: FULL_WIDTH_TYPES.includes(column.type) ? 12 : 6 }}
-                    >
-                      {FILE_TYPES.includes(column.type) ? (
-                        <FileInputArea
-                          id={`field-${column.name}`}
-                          column={column}
-                          existing={existingFiles[column.name] ?? []}
-                          pending={pendingFiles[column.name] ?? []}
-                          error={errors[column.name]}
-                          onAdd={(files) => {
-                            const single = column.type === "image" || column.type === "file";
-                            if (single) setExistingFiles((prev) => ({ ...prev, [column.name]: [] }));
-                            setPendingFiles((prev) => ({
-                              ...prev,
-                              [column.name]: single ? files.slice(0, 1) : [...(prev[column.name] ?? []), ...files],
-                            }));
-                            clearError(column.name);
+                  <Grid gutter="lg">
+                    {showDepartment && (
+                      <Grid.Col span={{ base: 12, md: 6 }}>
+                        <MultiSelect
+                          id="field-_departmentId"
+                          label="Visible to"
+                          description="Which departments can see this record"
+                          placeholder={departmentIds.length ? undefined : "Choose departments"}
+                          data={departmentOptions}
+                          value={departmentIds}
+                          onChange={(v) => {
+                            setDepartmentIds(v);
+                            clearError("_departmentId");
                           }}
-                          onRemoveExisting={(url) =>
-                            setExistingFiles((prev) => ({
-                              ...prev,
-                              [column.name]: (prev[column.name] ?? []).filter((u) => u !== url),
-                            }))
-                          }
-                          onRemovePending={(index) =>
-                            setPendingFiles((prev) => ({
-                              ...prev,
-                              [column.name]: (prev[column.name] ?? []).filter((_, i) => i !== index),
-                            }))
-                          }
+                          clearable={false}
+                          withAsterisk
+                          error={errors._departmentId}
                         />
-                      ) : (
-                        <FieldInput
-                          column={column}
-                          value={
-                            (column.type === "formula" || column.type === "rollup") && preview.value(column.name) !== undefined
-                              ? preview.value(column.name)
-                              : values[column.name]
-                          }
-                          onChange={(v) => setValue(column.name, v)}
-                          error={errors[column.name]}
-                        />
-                      )}
-                    </Grid.Col>
-                  ))}
-                </Grid>
+                      </Grid.Col>
+                    )}
+                    {/* keep the department on its own row */}
+                    {showDepartment && <Grid.Col span={6} visibleFrom="md" aria-hidden />}
+
+                    {columns.map((column) => (
+                      <Grid.Col
+                        key={column.name}
+                        id={`wrap-${column.name}`}
+                        span={{ base: 12, md: FULL_WIDTH_TYPES.includes(column.type) ? 12 : 6 }}
+                      >
+                        {FILE_TYPES.includes(column.type) ? (
+                          <FileInputArea
+                            id={`field-${column.name}`}
+                            column={column}
+                            existing={existingFiles[column.name] ?? []}
+                            pending={pendingFiles[column.name] ?? []}
+                            error={errors[column.name]}
+                            onAdd={(files) => {
+                              const single = column.type === "image" || column.type === "file";
+                              if (single) setExistingFiles((prev) => ({ ...prev, [column.name]: [] }));
+                              setPendingFiles((prev) => ({
+                                ...prev,
+                                [column.name]: single ? files.slice(0, 1) : [...(prev[column.name] ?? []), ...files],
+                              }));
+                              clearError(column.name);
+                            }}
+                            onRemoveExisting={(url) =>
+                              setExistingFiles((prev) => ({
+                                ...prev,
+                                [column.name]: (prev[column.name] ?? []).filter((u) => u !== url),
+                              }))
+                            }
+                            onRemovePending={(index) =>
+                              setPendingFiles((prev) => ({
+                                ...prev,
+                                [column.name]: (prev[column.name] ?? []).filter((_, i) => i !== index),
+                              }))
+                            }
+                          />
+                        ) : ownFields.has(column.name) ? (
+                          // the record is yours: no picker of everyone
+                          <TextInput
+                            label={columnLabel(column)}
+                            description={ownFields.get(column.name)!.value ? "That's you: you can only add your own here" : undefined}
+                            value={ownFields.get(column.name)!.label || "—"}
+                            readOnly
+                            variant="filled"
+                            error={errors[column.name]}
+                          />
+                        ) : (
+                          <FieldInput
+                            column={column}
+                            value={
+                              (column.type === "formula" || column.type === "rollup") && preview.value(column.name) !== undefined
+                                ? preview.value(column.name)
+                                : values[column.name]
+                            }
+                            onChange={(v) => setValue(column.name, v)}
+                            error={errors[column.name]}
+                          />
+                        )}
+                      </Grid.Col>
+                    ))}
+                  </Grid>
+                </>
               )}
             </Section>
 
@@ -437,7 +465,7 @@ export default function RecordFormPage() {
                   <Button variant="default" onClick={cancel} disabled={saving}>
                     Cancel
                   </Button>
-                  <Button type="submit" loading={saving} disabled={!ready} leftSection={<IconDeviceFloppy size={16} />}>
+                  <Button type="submit" loading={saving} disabled={!ready || Boolean(!editing && notListed)} leftSection={<IconDeviceFloppy size={16} />}>
                     {editing ? "Save changes" : "Create record"}
                   </Button>
                 </Group>

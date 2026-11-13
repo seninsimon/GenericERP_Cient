@@ -92,3 +92,17 @@
 .footer {
   border-top: 1px solid var(--app-border);
 }
+
+/* the current app, with a menu to switch apps */
+.appSwitcher {
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--app-surface);
+}
+
+.appSwitcher:hover {
+  border-color: var(--mantine-color-default-border);
+}

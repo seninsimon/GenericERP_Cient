@@ -31,7 +31,7 @@ export function ImportCsvModal({
   const [submitting, setSubmitting] = useState(false);
 
   const departments = (schema.allowedDepartments ?? []).map((d) => ({ value: d._id, label: d.name }));
-  const showDepartment = departments.length > 1;
+  const showDepartment = schema.byDepartment !== false && departments.length > 1;
   const departmentRequired = showDepartment;
 
   const close = () => {

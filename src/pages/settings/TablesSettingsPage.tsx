@@ -46,7 +46,8 @@ function NewTableModal({ opened, onClose }: { opened: boolean; onClose: () => vo
   const submit = form.onSubmit(async ({ tableName }) => {
     const name = tableName.trim();
     try {
-      await create.mutateAsync({ tableName: name });
+      // records seen by everyone who can use it (changeable in its Access settings)
+      await create.mutateAsync({ tableName: name, byDepartment: false });
       form.reset();
       onClose();
       navigate(settingsTablePath(name));

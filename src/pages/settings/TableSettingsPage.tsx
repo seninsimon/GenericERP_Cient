@@ -9,6 +9,7 @@ import {
   Menu,
   Modal,
   MultiSelect,
+  Radio,
   Select,
   Skeleton,
   Stack,
@@ -47,6 +48,7 @@ type Schema = {
   tableName: string;
   columns: SchemaColumn[];
   showInMenu: boolean;
+  byDepartment?: boolean;
   departments: { _id: string; name: string }[];
   unassignedCount?: number;
 };
@@ -59,16 +61,19 @@ function AccessSection({ schema }: { schema: Schema }) {
   const save = useUpdateTableSettings();
   const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [showInMenu, setShowInMenu] = useState(true);
+  const [byDepartment, setByDepartment] = useState(true);
   const [assignTo, setAssignTo] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
     setDepartmentIds(schema.departments.map((d) => d._id));
     setShowInMenu(schema.showInMenu !== false);
+    setByDepartment(schema.byDepartment !== false);
   }, [schema]);
 
   const dirty =
     showInMenu !== (schema.showInMenu !== false) ||
+    byDepartment !== (schema.byDepartment !== false) ||
     [...departmentIds].sort().join() !== schema.departments.map((d) => d._id).sort().join();
 
   const assign = async () => {
@@ -92,33 +97,53 @@ function AccessSection({ schema }: { schema: Schema }) {
   return (
     <Section
       title="Access"
-      description="People see this table only if their role allows it and they belong to one of its departments. They only see records of their own departments."
+      description="Roles decide who can open this table and what they can do. Here you choose who sees its records."
       actions={
         <Button
           disabled={!dirty}
           loading={save.isPending}
-          onClick={() => save.mutate({ table: schema.tableName, data: { showInMenu, departmentIds } })}
+          onClick={() => save.mutate({ table: schema.tableName, data: { showInMenu, byDepartment, departmentIds } })}
         >
           Save access
         </Button>
       }
     >
       <Stack gap="md">
-        <MultiSelect
-          label="Departments"
-          description={
-            departments.length
-              ? "Leave empty to keep the table for admins only."
-              : "There are no departments yet. Create them under Administration → Departments."
-          }
-          placeholder={departmentIds.length ? undefined : "Admins only"}
-          data={departments.map((d) => ({ value: d._id, label: d.name }))}
-          value={departmentIds}
-          onChange={setDepartmentIds}
-          searchable
-          clearable
-        />
-        {!departmentIds.length && (
+        <Radio.Group
+          label="Who sees the records"
+          value={byDepartment ? "department" : "everyone"}
+          onChange={(v) => setByDepartment(v === "department")}
+        >
+          <Stack gap="sm" mt="xs">
+            <Radio
+              value="everyone"
+              label="Everyone who can use this table"
+              description="Anyone whose role allows this table sees all its records (or only their own, where the role says so)."
+            />
+            <Radio
+              value="department"
+              label="Each department only its own"
+              description="People also need one of the departments below, and see only the records visible to their department."
+            />
+          </Stack>
+        </Radio.Group>
+        {byDepartment && (
+          <MultiSelect
+            label="Departments"
+            description={
+              departments.length
+                ? "Leave empty to keep the table for admins only."
+                : "There are no departments yet. Create them under Administration → Departments."
+            }
+            placeholder={departmentIds.length ? undefined : "Admins only"}
+            data={departments.map((d) => ({ value: d._id, label: d.name }))}
+            value={departmentIds}
+            onChange={setDepartmentIds}
+            searchable
+            clearable
+          />
+        )}
+        {byDepartment && !departmentIds.length && (
           <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={16} />} p="sm">
             <Text size="sm">With no department, only admins can see and use this table.</Text>
           </Alert>
@@ -130,7 +155,7 @@ function AccessSection({ schema }: { schema: Schema }) {
           onChange={(e) => setShowInMenu(e.currentTarget.checked)}
         />
 
-        {unassigned > 0 && (
+        {byDepartment && unassigned > 0 && (
           <Alert
             color="yellow"
             icon={<IconInfoCircle size={16} />}

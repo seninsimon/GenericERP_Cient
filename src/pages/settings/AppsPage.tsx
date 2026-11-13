@@ -8,44 +8,21 @@ import {
   Drawer,
   Group,
   Modal,
-  MultiSelect,
   Radio,
   SimpleGrid,
   Skeleton,
   Stack,
+  TagsInput,
   Text,
   Textarea,
   TextInput,
-  ThemeIcon,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-  IconAddressBook,
-  IconApps,
   IconArrowRight,
-  IconBriefcase,
-  IconBuildingSkyscraper,
-  IconBuildingStore,
-  IconBuildingWarehouse,
-  IconCash,
   IconCheck,
-  IconChecklist,
-  IconDeviceDesktop,
-  IconDeviceLaptop,
-  IconHeadset,
-  IconHeartHandshake,
-  IconLifebuoy,
-  IconPackage,
-  IconReceipt,
-  IconReceiptRefund,
-  IconSchool,
-  IconShoppingCart,
   IconSparkles,
-  IconStethoscope,
-  IconTargetArrow,
-  IconUsers,
-  type Icon,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 
@@ -62,40 +39,8 @@ import {
 } from "../../api/reactQueryHooks/useApps";
 import { Page, PageHeader, Section } from "../../components/ui/Page";
 import { tablePath, tableTitle } from "../../layout/nav";
+import { AppIcon } from "../../features/apps/AppIcon";
 import { formatDate } from "../../lib/format";
-
-// Icons named by the app catalog (src/apps on the server)
-const ICONS: Record<string, Icon> = {
-  IconAddressBook,
-  IconBriefcase,
-  IconBuildingSkyscraper,
-  IconBuildingStore,
-  IconBuildingWarehouse,
-  IconCash,
-  IconChecklist,
-  IconDeviceDesktop,
-  IconDeviceLaptop,
-  IconHeadset,
-  IconHeartHandshake,
-  IconLifebuoy,
-  IconPackage,
-  IconReceipt,
-  IconReceiptRefund,
-  IconSchool,
-  IconShoppingCart,
-  IconSparkles,
-  IconStethoscope,
-  IconTargetArrow,
-  IconUsers,
-};
-function AppIcon({ name, size = 40 }: { name: string; size?: number }) {
-  const I = ICONS[name] ?? IconApps;
-  return (
-    <ThemeIcon variant="light" size={size} radius="md" aria-hidden>
-      <I size={size * 0.55} stroke={1.75} />
-    </ThemeIcon>
-  );
-}
 
 /* ---------------- install preview ---------------- */
 
@@ -107,20 +52,23 @@ function InstallDrawer({ target, onClose }: { target: Target | null; onClose: ()
   const { data: departments = [] } = useDepartments();
   const [tables, setTables] = useState<Record<string, boolean>>({});
   const [conflicts, setConflicts] = useState<Record<string, "new" | "use">>({});
-  const [departmentIds, setDepartmentIds] = useState<string[] | null>(null);
   const [sampleData, setSampleData] = useState(false);
+  // an organization type's starter departments, as edited (null = as suggested)
+  const [starter, setStarter] = useState<string[] | null>(null);
   const install = useInstallApps();
 
-  // default: share with every department
-  const shareWith = departmentIds ?? departments.map((d) => d._id);
-  const options: InstallOptions = { tables, conflicts, departmentIds: shareWith, sampleData };
   const { data: plan, isLoading, error } = useInstallPlan(target?.apps ?? null, { tables, conflicts }, target?.draft);
+  // the tables are shared with every department, so switching one to
+  // "each department only its own" later just works
+  const shareWith = departments.map((d) => d._id);
+  const starterNames = starter ?? plan?.departments.map((d) => d.name) ?? [];
+  const options: InstallOptions = { tables, conflicts, departmentIds: shareWith, sampleData, departments: starterNames };
 
   const reset = () => {
     setTables({});
     setConflicts({});
-    setDepartmentIds(null);
     setSampleData(false);
+    setStarter(null);
   };
   const close = () => {
     reset();
@@ -243,35 +191,28 @@ function InstallDrawer({ target, onClose }: { target: Target | null; onClose: ()
             ))}
           </Stack>
 
+          {plan.departments.length > 0 && (
+            <TagsInput
+              label="Departments"
+              description="Created for you (ones you already have are reused). Rename or remove any; you can change them later too."
+              value={starterNames}
+              onChange={setStarter}
+              placeholder={starterNames.length ? undefined : "Type a name and press Enter"}
+              clearable
+            />
+          )}
+
           {plan.roles.length > 0 && (
             <Stack gap={4}>
               <Text fw={600} size="sm">
-                Roles
+                Who can use it
               </Text>
-              {plan.roles.map((r) => (
-                <Text key={r.name} size="sm">
-                  <b>{r.name}</b> {r.action === "create" ? "(new)" : "(gets access to the new tables)"}:{" "}
-                  <Text span c="dimmed" size="sm">
-                    {r.name === "Manager"
-                      ? "full access to these tables."
-                      : r.name === "Staff"
-                        ? "everyday work; personal records (time logs, leave) only their own."
-                        : ""}
-                  </Text>
-                </Text>
-              ))}
+              <Text size="sm" c="dimmed">
+                Afterwards, give people access on their page under <b>Users</b>: <b>Staff</b> for everyday work (personal
+                records like leave only their own) or <b>Manager</b> for everything, including approvals.
+              </Text>
             </Stack>
           )}
-
-          <MultiSelect
-            label="Visible to"
-            description="Departments whose members see the new tables (their role decides what they can do)"
-            data={departments.map((d) => ({ value: d._id, label: d.name }))}
-            value={shareWith}
-            onChange={setDepartmentIds}
-            placeholder={departments.length ? "Choose departments" : "No departments yet: only admins will see them"}
-            clearable
-          />
 
           {plan.hasSample && (
             <Checkbox
@@ -397,9 +338,9 @@ export default function AppsPage() {
   );
 
   return (
-    <Page title="Apps" breadcrumbs={[{ label: "Administration" }, { label: "Apps" }]} width="wide">
+    <Page title="Manage apps" breadcrumbs={[{ label: "Administration" }, { label: "Manage apps" }]} width="wide">
       <PageHeader
-        title="Apps"
+        title="Manage apps"
         description="Ready-made, connected tables for the work you do. Everything an app adds is yours to change afterwards."
       />
       {isLoading ? (

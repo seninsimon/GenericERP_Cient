@@ -360,6 +360,11 @@ export default function RolesPage() {
               {r.name}
             </Text>
             {r.isAdmin && <Badge color="red">Admin</Badge>}
+            {r.appKey && (
+              <Tooltip label="Comes with the app, and goes when the app is removed. Give it to people through App access on their page.">
+                <Badge variant="light">App</Badge>
+              </Tooltip>
+            )}
           </Group>
         ),
       },
@@ -390,6 +395,11 @@ export default function RolesPage() {
             <Text size="sm">All tables</Text>
           ) : permissionCount(r) ? (
             <Text size="sm">{pluralize(permissionCount(r), "table")}</Text>
+          ) : r.name.toLowerCase() === "member" ? (
+            // empty on purpose: a Member's rights come from their app access
+            <Text size="sm" c="dimmed">
+              Through app access
+            </Text>
           ) : (
             <Badge color="yellow">No tables</Badge>
           ),
@@ -410,7 +420,7 @@ export default function RolesPage() {
     <Page title="Roles & permissions" breadcrumbs={[{ label: "Administration" }, { label: "Roles & permissions" }]} width="wide">
       <PageHeader
         title="Roles & permissions"
-        description="A role says what people can do in each table: view, create, edit or delete."
+        description="A role says what people can do in each table: view, create, edit or delete. Apps bring their own roles; give them to people through App access on the Users page."
         meta={roles.length ? <Badge variant="default">{pluralize(roles.length, "role")}</Badge> : undefined}
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={() => setEditing(null)}>
@@ -436,7 +446,7 @@ export default function RolesPage() {
             <Menu.Item leftSection={<IconEdit size={16} />} onClick={() => setEditing(r)}>
               Edit
             </Menu.Item>
-            {!r.isAdmin && (
+            {!r.isAdmin && !r.appKey && (
               <>
                 <Menu.Divider />
                 <Menu.Item color="red" leftSection={<IconTrash size={16} />} onClick={() => askDelete(r)}>

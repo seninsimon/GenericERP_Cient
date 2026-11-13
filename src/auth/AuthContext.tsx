@@ -22,6 +22,8 @@ export type CurrentUser = {
     isAdmin: boolean;
     permissions: Record<string, { view: boolean; create: boolean; edit: boolean; delete: boolean }>;
   };
+  // all their roles: the main one, then app roles ("Projects · Manager")
+  roleIds?: string[];
   departments: Department[];
 };
 

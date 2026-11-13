@@ -20,7 +20,7 @@ export const MAIN_NAV: NavItem[] = [
 ];
 
 export const ADMIN_NAV: NavItem[] = [
-  { label: "Apps", to: "/settings/apps", icon: IconApps, description: "Add ready-made tables: Projects, HR, CRM…" },
+  { label: "Manage apps", to: "/settings/apps", icon: IconApps, description: "Add or remove ready-made apps: Projects, HR, CRM…" },
   { label: "Tables & columns", to: "/settings/tables", icon: IconDatabaseCog, description: "Create tables, edit columns" },
   { label: "Users", to: "/settings/users", icon: IconUsers, description: "Accounts, roles and departments" },
   { label: "Roles & permissions", to: "/settings/roles", icon: IconShieldLock, description: "What each role may do" },

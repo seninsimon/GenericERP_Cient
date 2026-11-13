@@ -29,8 +29,8 @@ export interface ChoiceOption {
 }
 
 // May this user choose this option? (approval steps)
-export const canChoose = (option: ChoiceOption, user: { role: { _id: string; isAdmin: boolean } }) =>
-  !option.roles?.length || user.role.isAdmin || option.roles.includes(user.role._id);
+export const canChoose = (option: ChoiceOption, user: { role: { _id: string; isAdmin: boolean }; roleIds?: string[] }) =>
+  !option.roles?.length || user.role.isAdmin || (user.roleIds ?? [user.role._id]).some((id) => option.roles!.includes(id));
 
 export type RollupConfig = {
   from: string;
@@ -75,6 +75,11 @@ export interface TableSchemaInfo {
   columns: RecordColumn[];
   departments?: Department[];
   allowedDepartments?: Department[];
+  // "who sees the records": false = everyone who can use the table (no "Visible to")
+  byDepartment?: boolean;
+  // "own only" access: the fields that make a record yours, locked to you in the
+  // form (missing: you're not in the People directory yet, and why)
+  ownFields?: { column: string; value: string | null; label: string; missing?: string }[];
   // own: the role limits this table to the user's own records
   permissions?: { view?: boolean; create?: boolean; edit?: boolean; delete?: boolean; own?: boolean };
   unassignedCount?: number;

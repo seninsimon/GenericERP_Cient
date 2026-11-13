@@ -5,6 +5,7 @@ import { IconBolt, IconPencil, IconPlus, IconTrash, IconX } from "@tabler/icons-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import api, { errorMessage } from "../../api/api";
+import { useTables } from "../../api/reactQueryHooks/useTables";
 import { Section } from "../../components/ui/Page";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { columnLabel, type RecordColumn } from "../../features/records/schema";
@@ -14,6 +15,29 @@ type Action = { do: "set"; column: string; value: unknown } | { do: "notify"; wh
 type Automation = { _id: string; name: string; trigger: Trigger; actions: Action[]; enabled: boolean };
 
 const CREATOR = "$creator";
+const MANAGERS = "$managers";
+
+type WhoOption = { value: string; label: string };
+
+// Who an automation can tell: the creator, the table's managers, a person
+// field, or the person in a linked record ("the person in Employee").
+function useWhoOptions(columns: RecordColumn[]): WhoOption[] {
+  const { data: tables = [] } = useTables();
+  const linked = columns
+    .filter((c) => c.type === "relation" && c.ref)
+    .flatMap((c) => {
+      const target = (tables as { tableName: string; columns?: RecordColumn[] }[]).find((t) => t.tableName === c.ref);
+      return (target?.columns ?? [])
+        .filter((u) => u.type === "user")
+        .map((u) => ({ value: `${c.name}.${u.name}`, label: `The person in ${columnLabel(c)} (${columnLabel(u)})` }));
+    });
+  return [
+    { value: CREATOR, label: "The person who created it" },
+    { value: MANAGERS, label: "Its managers (people who can change every record)" },
+    ...columns.filter((c) => c.type === "user").map((c) => ({ value: c.name, label: `The person in ${columnLabel(c)}` })),
+    ...linked,
+  ];
+}
 const SETTABLE = ["text", "textarea", "number", "date", "boolean", "choice", "user"];
 // what "set" can put into a field of each type, besides a typed value
 const SPECIAL: Record<string, { value: string; label: string }> = {
@@ -22,7 +46,7 @@ const SPECIAL: Record<string, { value: string; label: string }> = {
 };
 
 // One automation as a sentence: "When Status becomes Approved → set Approved on to today, tell the person who created it"
-function sentence(a: Pick<Automation, "trigger" | "actions">, columns: RecordColumn[]) {
+function sentence(a: Pick<Automation, "trigger" | "actions">, columns: RecordColumn[], who: WhoOption[]) {
   const name = (n: string) => {
     const c = columns.find((x) => x.name === n);
     return c ? columnLabel(c) : n;
@@ -33,7 +57,7 @@ function sentence(a: Pick<Automation, "trigger" | "actions">, columns: RecordCol
       : `When ${name(a.trigger.column)} ${a.trigger.to ? `becomes ${a.trigger.to}` : "changes"}`;
   const then = a.actions.map((x) =>
     x.do === "notify"
-      ? `tell ${x.who === CREATOR ? "the person who created it" : `the person in ${name(x.who)}`}${x.message ? ` “${x.message}”` : ""}`
+      ? `tell ${(who.find((w) => w.value === x.who)?.label ?? `the person in ${name(x.who)}`).replace(/^The /, "the ").replace(/^Its /, "its ").replace(/ \(people who can change every record\)$/, "")}${x.message ? ` “${x.message}”` : ""}`
       : `set ${name(x.column)} to ${x.value === "today" ? "today" : x.value === "$me" ? "the person who made the change" : String(x.value)}`
   );
   return `${when} → ${then.join(", ")}`;
@@ -44,13 +68,14 @@ function ActionRow({
   columns,
   onChange,
   onRemove,
+  who,
 }: {
   action: Action;
   columns: RecordColumn[];
+  who: WhoOption[];
   onChange: (a: Action) => void;
   onRemove?: () => void;
 }) {
-  const people = columns.filter((c) => c.type === "user");
   const settable = columns.filter((c) => SETTABLE.includes(c.type));
   const target = action.do === "set" ? columns.find((c) => c.name === action.column) : undefined;
   return (
@@ -70,10 +95,7 @@ function ActionRow({
         <>
           <Select
             label="Who"
-            data={[
-              { value: CREATOR, label: "The person who created it" },
-              ...people.map((c) => ({ value: c.name, label: `The person in ${columnLabel(c)}` })),
-            ]}
+            data={who}
             value={action.who}
             onChange={(v) => onChange({ ...action, who: v ?? CREATOR })}
             allowDeselect={false}
@@ -157,6 +179,7 @@ function AutomationModal({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const who = useWhoOptions(columns);
   const [trigger, setTrigger] = useState<Trigger>(editing?.trigger ?? { when: "created" });
   const [actions, setActions] = useState<Action[]>(editing?.actions ?? [{ do: "notify", who: CREATOR }]);
   const [error, setError] = useState<string | null>(null);
@@ -170,7 +193,7 @@ function AutomationModal({
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["automations", table] });
-      notifications.show({ title: "Automation saved", message: sentence({ trigger, actions }, columns), color: "green" });
+      notifications.show({ title: "Automation saved", message: sentence({ trigger, actions }, columns, who), color: "green" });
       onClose();
     },
     onError: (err) => setError(errorMessage(err)),
@@ -207,6 +230,7 @@ function AutomationModal({
             key={i}
             action={a}
             columns={columns}
+            who={who}
             onChange={(next) => setActions((prev) => prev.map((x, j) => (j === i ? next : x)))}
             onRemove={actions.length > 1 ? () => setActions((prev) => prev.filter((_, j) => j !== i)) : undefined}
           />
@@ -222,7 +246,7 @@ function AutomationModal({
           Also do
         </Button>
         <Text size="sm" c="dimmed">
-          {sentence({ trigger, actions }, columns)}
+          {sentence({ trigger, actions }, columns, who)}
         </Text>
         {error && (
           <Text size="sm" c="var(--mantine-color-error)">
@@ -245,6 +269,7 @@ function AutomationModal({
 // Table settings: things that happen by themselves when records change.
 export function AutomationsSection({ table, columns }: { table: string; columns: RecordColumn[] }) {
   const qc = useQueryClient();
+  const who = useWhoOptions(columns);
   const { data: automations = [] } = useQuery({
     queryKey: ["automations", table],
     queryFn: async () => (await api.get<Automation[]>(`/schema/${table}/automations`)).data,
@@ -277,7 +302,7 @@ export function AutomationsSection({ table, columns }: { table: string; columns:
               <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
                 <IconBolt size={16} color="var(--mantine-color-yellow-6)" style={{ flexShrink: 0 }} />
                 <Text size="sm" c={a.enabled ? undefined : "dimmed"} td={a.enabled ? undefined : "line-through"}>
-                  {sentence(a, columns)}
+                  {sentence(a, columns, who)}
                 </Text>
               </Group>
               <Group gap={4} wrap="nowrap">

@@ -2,21 +2,17 @@ import {
   Anchor,
   Box,
   Button,
-  Card,
   Group,
   Progress,
   SimpleGrid,
   Skeleton,
   Stack,
   Text,
-  ThemeIcon,
   Title,
   Tooltip,
-  UnstyledButton,
 } from "@mantine/core";
 import {
   IconApps,
-  IconArrowRight,
   IconBuilding,
   IconCircleCheck,
   IconCircleDashed,
@@ -26,95 +22,32 @@ import {
   IconLock,
   IconPlus,
   IconShieldLock,
-  IconTable,
   IconUsers,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
-import { getAuditLog, getJobs, getTableData } from "../api/api";
+import { getAuditLog, getJobs } from "../api/api";
 import { useDepartments, useRoles, useUsers } from "../api/reactQueryHooks/useAdmin";
 import { useTables } from "../api/reactQueryHooks/useTables";
 import { useCurrentUser } from "../auth/AuthContext";
 import { JobStatusBadge, jobResultSummary } from "../components/JobStatusBadge";
 import { EmptyState } from "../components/ui/EmptyState";
 import { AppDashboards } from "../features/AppDashboards";
+import { TableCard, type TableInfo } from "../features/TableCard";
+import { AppCard } from "../features/apps/AppCard";
+import { useAppMenu } from "../features/apps/appMenu";
 import { Page, Section } from "../components/ui/Page";
-import { newRecordPath, tablePath, tableTitle } from "../layout/nav";
-import { formatDateTime, formatNumber, formatRelative } from "../lib/format";
+import { tableTitle } from "../layout/nav";
+import { formatDateTime, formatRelative } from "../lib/format";
 import { ActionBadge, describeEntry } from "../utils/auditFormat";
 
-type TableInfo = { tableName: string; permissions?: { create?: boolean } };
 
 const greeting = () => {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 };
-
-/* ---------------- one table card ---------------- */
-
-function TableCard({ table }: { table: TableInfo }) {
-  const navigate = useNavigate();
-  const { data, isLoading } = useQuery({
-    queryKey: ["tableCount", table.tableName],
-    queryFn: async () => (await getTableData(table.tableName, { page: 1, limit: 1 })).data,
-    staleTime: 60_000,
-  });
-  const title = tableTitle(table.tableName);
-
-  return (
-    <Card padding="md" style={{ display: "flex", flexDirection: "column" }}>
-      <UnstyledButton
-        onClick={() => navigate(tablePath(table.tableName))}
-        aria-label={`Open ${title}`}
-        style={{ flex: 1 }}
-      >
-        <Group gap="sm" wrap="nowrap" align="flex-start">
-          <ThemeIcon variant="light" size={36} radius="md" aria-hidden>
-            <IconTable size={18} stroke={1.75} />
-          </ThemeIcon>
-          <Box style={{ minWidth: 0 }}>
-            <Text fw={600} truncate>
-              {title}
-            </Text>
-            {isLoading ? (
-              <Skeleton h={12} w={70} mt={6} />
-            ) : (
-              <Text size="sm" c="dimmed" className="tabular-nums">
-                {data?.totalIsEstimate ? "~" : ""}
-                {formatNumber(data?.total ?? 0)} {data?.total === 1 ? "record" : "records"}
-              </Text>
-            )}
-          </Box>
-        </Group>
-      </UnstyledButton>
-      <Group gap="xs" mt="md">
-        <Button
-          component={Link}
-          to={tablePath(table.tableName)}
-          variant="default"
-          size="xs"
-          rightSection={<IconArrowRight size={14} />}
-        >
-          Open
-        </Button>
-        {table.permissions?.create && (
-          <Button
-            component={Link}
-            to={newRecordPath(table.tableName)}
-            variant="subtle"
-            size="xs"
-            leftSection={<IconPlus size={14} />}
-            aria-label={`New record in ${title}`}
-          >
-            New
-          </Button>
-        )}
-      </Group>
-    </Card>
-  );
-}
 
 /* ---------------- admin: getting started ---------------- */
 
@@ -298,6 +231,7 @@ function RecentJobs() {
 export default function HomePage() {
   const { user, isAdmin } = useCurrentUser();
   const { data: tables = [], isLoading } = useTables();
+  const { apps, appMode } = useAppMenu();
   const firstName = (user.fullName || user.username).split(/\s+/)[0];
   const visible = (tables as (TableInfo & { showInMenu?: boolean })[]).filter((t) => t.showInMenu !== false);
 
@@ -314,6 +248,20 @@ export default function HomePage() {
 
       <Stack gap="xl">
         {isAdmin && !isLoading && <GetStarted tableCount={tables.length} />}
+        {appMode ? (
+          // many apps: Home is the launcher; each app's page has its counts
+          <Box>
+            <Title order={4} mb="sm">
+              Your apps
+            </Title>
+            <SimpleGrid cols={{ base: 1, xs: 2, md: 3, lg: 4 }} spacing="md">
+              {apps.map((app) => (
+                <AppCard key={app.key} app={app} />
+              ))}
+            </SimpleGrid>
+          </Box>
+        ) : (
+          <>
         {/* the installed apps' counts: open tasks, overdue invoices, … */}
         <AppDashboards />
 
@@ -366,6 +314,8 @@ export default function HomePage() {
             </Box>
           )}
         </Box>
+          </>
+        )}
 
         <SimpleGrid cols={{ base: 1, lg: isAdmin ? 2 : 1 }} spacing="lg">
           {isAdmin && <RecentActivity />}
