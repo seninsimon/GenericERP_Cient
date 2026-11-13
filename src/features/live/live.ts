@@ -3,7 +3,7 @@ import { notifications } from "@mantine/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
-import { recordPath } from "../../layout/nav";
+import { noticePath } from "../../layout/nav";
 
 // Live updates (GET /api/events, Server-Sent Events). The bell and its pop-up
 // are instant. Open lists and records don't redraw by themselves (rows moving
@@ -51,7 +51,7 @@ export function useLiveConnection(meId: string) {
         color: "blue",
         style: n.table && n.id ? { cursor: "pointer" } : undefined,
         onClick: () => {
-          if (n.table && n.id) navigate(recordPath(n.table, n.id));
+          if (n.table && n.id) navigate(noticePath(n.table, n.id));
         },
       });
     });
@@ -61,8 +61,20 @@ export function useLiveConnection(meId: string) {
       push({ ...c, at: Date.now() });
       qc.invalidateQueries({ queryKey: ["tile"] }); // dashboard counts
     });
+    source.addEventListener("chat", (e) => {
+      const c = JSON.parse((e as MessageEvent).data) as { channel: string; by: string };
+      qc.invalidateQueries({ queryKey: ["chatMessages", c.channel] });
+      if (c.by !== meId) qc.invalidateQueries({ queryKey: ["chat"] }); // unread counts
+    });
+    source.addEventListener("comment", (e) => {
+      const c = JSON.parse((e as MessageEvent).data) as { table: string; id: string };
+      qc.invalidateQueries({ queryKey: ["comments", c.table, c.id] });
+    });
     // (re)connected: catch up on anything missed meanwhile
-    source.onopen = () => qc.invalidateQueries({ queryKey: ["notifications"] });
+    source.onopen = () => {
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+      qc.invalidateQueries({ queryKey: ["chat"] });
+    };
     return () => source.close();
   }, [qc, navigate, meId]);
 }

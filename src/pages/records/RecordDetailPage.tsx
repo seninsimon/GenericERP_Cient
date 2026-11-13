@@ -28,6 +28,7 @@ import { editRecordPath, newRecordPath, tablePath, tableTitle } from "../../layo
 import { formatDateTime, formatRelative, isEmptyValue } from "../../lib/format";
 import { RichTextView } from "../../features/records/fields/RichText";
 import { RecordActivity } from "../../features/records/RecordActivity";
+import { CommentsSection } from "../../features/records/CommentsSection";
 import { RelatedRecords } from "../../features/records/RelatedRecords";
 import { RelationLinks } from "../../features/records/RelationLinks";
 import { UserNames } from "../../features/records/UserNames";
@@ -272,6 +273,7 @@ export default function RecordDetailPage() {
             {!loading && (
               <RelatedRecords table={table} recordId={id} recordName={name} departmentIds={(record._departmentIds as string[] | undefined) ?? []} />
             )}
+            {!loading && <CommentsSection table={table} id={id} />}
           </Stack>
         </Grid.Col>
 

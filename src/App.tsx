@@ -27,6 +27,8 @@ const DepartmentsPage = lazy(() => import("./pages/settings/DepartmentsPage"));
 const AuditLogPage = lazy(() => import("./pages/settings/AuditLogPage"));
 const AppsPage = lazy(() => import("./pages/settings/AppsPage"));
 const EmailSettingsPage = lazy(() => import("./pages/settings/EmailSettingsPage"));
+const ChatSettingsPage = lazy(() => import("./pages/settings/ChatSettingsPage"));
+const ChatPage = lazy(() => import("./pages/ChatPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/PasswordPages").then((m) => ({ default: m.ForgotPasswordPage })));
 const SetPasswordPage = lazy(() => import("./pages/PasswordPages").then((m) => ({ default: m.SetPasswordPage })));
 
@@ -80,6 +82,8 @@ export default function App() {
                   <Route path="settings/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
                   <Route path="settings/apps" element={<AdminOnly><AppsPage /></AdminOnly>} />
                   <Route path="settings/email" element={<AdminOnly><EmailSettingsPage /></AdminOnly>} />
+                  <Route path="settings/chat" element={<AdminOnly><ChatSettingsPage /></AdminOnly>} />
+                  <Route path="chat" element={<ChatPage />} />
                   <Route path="settings/roles" element={<AdminOnly><RolesPage /></AdminOnly>} />
                   <Route path="settings/departments" element={<AdminOnly><DepartmentsPage /></AdminOnly>} />
                   <Route path="settings/audit" element={<AdminOnly><AuditLogPage /></AdminOnly>} />

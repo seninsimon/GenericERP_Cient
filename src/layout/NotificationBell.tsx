@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 
 import api from "../api/api";
 import { formatRelative } from "../lib/format";
-import { recordPath } from "./nav";
+import { noticePath } from "./nav";
 
 type Notice = {
   _id: string;
@@ -39,7 +39,7 @@ export function NotificationBell() {
   const open = (n: Notice) => {
     if (!n.read) read.mutate([n._id]);
     setOpened(false);
-    if (n.tableName && n.recordId) navigate(recordPath(n.tableName, n.recordId));
+    if (n.tableName && n.recordId) navigate(noticePath(n.tableName, n.recordId));
   };
 
   return (

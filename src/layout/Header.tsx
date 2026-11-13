@@ -1,4 +1,5 @@
 import { NotificationBell } from "./NotificationBell";
+import { ChatButton } from "../features/chat/ChatButton";
 import {
   ActionIcon,
   Anchor,
@@ -98,6 +99,7 @@ export default function Header({ mobileOpened, toggleMobile }: { mobileOpened: b
             <IconSearch size={18} />
           </ActionIcon>
         </Tooltip>
+        <ChatButton />
         <NotificationBell />
         <JobsIndicator />
         <ColorSchemeToggle />
