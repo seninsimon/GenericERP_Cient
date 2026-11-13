@@ -24,7 +24,7 @@ import {
   IconCheck,
   IconSparkles,
 } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useDepartments } from "../../api/reactQueryHooks/useAdmin";
 import {
@@ -350,8 +350,15 @@ export default function AppsPage() {
           {!installed.length && bundleSection}
 
           <Section
-            title="Describe your organization"
-            description="Not in the list? Say what you do in a sentence or two, and AI drafts the tables. You'll see them before anything is added, and can change everything afterwards."
+            title={
+              <Group gap="xs">
+                Describe your organization
+                <Badge variant="light" color="violet">
+                  Beta
+                </Badge>
+              </Group>
+            }
+            description={`Not in the list? Say what you do in a sentence or two, and AI${data?.aiName ? ` (${data.aiName})` : ""} drafts the tables. You'll see them before anything is added, and can change everything afterwards.`}
           >
             {data?.aiDrafts ? (
               <Stack gap="sm">
@@ -382,9 +389,14 @@ export default function AppsPage() {
                 </Group>
               </Stack>
             ) : (
-              <Text size="sm" c="dimmed">
-                To turn this on, add an Anthropic API key to the server's settings (<code>ANTHROPIC_API_KEY</code> in <code>.env</code>).
-              </Text>
+              <Group gap="sm">
+                <Text size="sm" c="dimmed">
+                  To turn this on, choose an AI (Claude, Gemini or ChatGPT) and paste its key.
+                </Text>
+                <Button size="xs" variant="light" component={Link} to="/settings/ai" leftSection={<IconSparkles size={14} />}>
+                  Set up AI
+                </Button>
+              </Group>
             )}
           </Section>
 

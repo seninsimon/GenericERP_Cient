@@ -58,7 +58,7 @@ export type InstallResult = {
 export const useApps = () =>
   useQuery({
     queryKey: ["apps"],
-    queryFn: async () => (await api.get<{ apps: AppInfo[]; bundles: BundleInfo[]; aiDrafts: boolean }>("/apps")).data,
+    queryFn: async () => (await api.get<{ apps: AppInfo[]; bundles: BundleInfo[]; aiDrafts: boolean; aiName: string | null }>("/apps")).data,
   });
 
 // What installing would do; refreshed whenever the choices change.
