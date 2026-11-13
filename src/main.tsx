@@ -17,7 +17,8 @@ import { buildTheme, cssVariablesResolver } from "./theme/theme.ts";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
+      // coming back to the window shows current data (open forms keep your edits)
+      refetchOnWindowFocus: true,
       retry: 1,
       staleTime: 15_000,
     },

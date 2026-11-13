@@ -9,15 +9,16 @@ import {
   Group,
   PasswordInput,
   Progress,
+  Radio,
   SegmentedControl,
   SimpleGrid,
   Stack,
   Text,
   TextInput,
   Title,
+  type MantineColorScheme,
   useMantineColorScheme,
   useMantineTheme,
-  type MantineColorScheme,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
@@ -165,6 +166,33 @@ export default function ProfilePage() {
               </Button>
             </Group>
           </form>
+        </Section>
+
+        <Section title="Email" description="What you get by email: requests waiting for you, decisions on yours, things given to you.">
+          {user.email ? (
+            <Radio.Group
+              value={user.emailPref ?? "now"}
+              onChange={async (v) => {
+                try {
+                  await updateProfile({ emailPref: v as "now" | "daily" | "never" });
+                  await refresh();
+                  notifications.show({ title: "Saved", message: "Your email choice was updated", color: "teal" });
+                } catch (err) {
+                  notifications.show({ title: "Couldn't save", message: errorMessage(err), color: "red" });
+                }
+              }}
+            >
+              <Stack gap="sm">
+                <Radio value="now" label="Right away" description="One email each time something needs you" />
+                <Radio value="daily" label="Once a day" description="Everything in the morning summary" />
+                <Radio value="never" label="Never" description="Only the bell in Zenin ERP (password emails still come)" />
+              </Stack>
+            </Radio.Group>
+          ) : (
+            <Text size="sm" c="dimmed">
+              Add your email address above to get emails.
+            </Text>
+          )}
         </Section>
 
         <Section

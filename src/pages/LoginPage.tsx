@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from "react";
 import {
   Alert,
+  Anchor,
   Box,
   Button,
   Center,
@@ -165,8 +166,8 @@ export default function LoginPage({ onLoggedIn }: { onLoggedIn: (user: CurrentUs
               </Button>
             </Stack>
           </form>
-          <Text size="xs" c="dimmed" ta="center" mt="xl">
-            Forgot your password? Ask an administrator to reset it.
+          <Text size="sm" ta="center" mt="xl">
+            <Anchor href="/forgot-password">Forgot your password?</Anchor>
           </Text>
         </Box>
       </Center>

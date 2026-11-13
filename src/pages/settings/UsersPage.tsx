@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Avatar,
   Badge,
@@ -21,9 +21,11 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useMediaQuery } from "@mantine/hooks";
-import { IconEdit, IconKey, IconPlus, IconTrash, IconUserCheck, IconUserOff, IconUsers } from "@tabler/icons-react";
+import { IconEdit, IconKey, IconMail, IconPlus, IconTrash, IconUserCheck, IconUserOff, IconUsers } from "@tabler/icons-react";
+import { notifications } from "@mantine/notifications";
+import { useQuery } from "@tanstack/react-query";
 
-import { errorMessage } from "../../api/api";
+import api, { errorMessage } from "../../api/api";
 import {
   useAppAccessOptions,
   useCreateUser,
@@ -76,6 +78,20 @@ const EMPTY: FormValues = {
 };
 
 const NONE = "none";
+
+// "Email a password link" on a person (a welcome link if they never signed in)
+async function sendPasswordLink(u: User) {
+  try {
+    const { data } = await api.post<{ message: string }>(`/users/${u._id}/password-link`);
+    notifications.show({ title: "Link sent", message: data.message, color: "green" });
+  } catch (err) {
+    notifications.show({ title: "Couldn't send the link", message: errorMessage(err), color: "red" });
+  }
+}
+
+// whether email works (Administration → Email), for the password-link options
+const useEmailStatus = () =>
+  useQuery({ queryKey: ["email"], queryFn: async () => (await api.get<{ ready: boolean }>("/email")).data, staleTime: 60_000 });
 
 // App access: one row per app, No access / Staff / Manager.
 function AppAccessFields({
@@ -140,17 +156,28 @@ function UserModal({ opened, onClose, user }: { opened: boolean; onClose: () => 
   const create = useCreateUser();
   const update = useUpdateUser();
   const isSelf = user?._id === me._id;
+  // new people: "email them a link to choose their password" (when email works)
+  const { data: mail } = useEmailStatus();
+  const [linkChoice, setLinkChoice] = useState<boolean | null>(null);
+  const sendLink = !user && Boolean(mail?.ready) && (linkChoice ?? true);
+  const sendLinkRef = useRef(sendLink);
+  sendLinkRef.current = sendLink;
 
   const form = useForm<FormValues>({
     initialValues: EMPTY,
     validate: {
       username: (v) => (USERNAME.test(v.trim()) ? null : "3–50 characters: letters, numbers, dot, dash or underscore"),
-      email: (v) => (!v || EMAIL.test(v.trim()) ? null : "Enter a valid email address"),
       password: (v) =>
-        !user && !v
+        !user && !v && !sendLinkRef.current
           ? "Set a password"
           : v && v.length < MIN_PASSWORD
             ? `At least ${MIN_PASSWORD} characters`
+            : null,
+      email: (v) =>
+        v && !EMAIL.test(v.trim())
+          ? "Enter a valid email address"
+          : !user && !v && sendLinkRef.current
+            ? "Needed to email them the link"
             : null,
       roleId: (v) => (v ? null : "Choose a role"),
     },
@@ -194,6 +221,7 @@ function UserModal({ opened, onClose, user }: { opened: boolean; onClose: () => 
       data.appAccess = Object.fromEntries(accessOptions.map((o) => [o.key, v.appAccess[o.key] && v.appAccess[o.key] !== NONE ? v.appAccess[o.key] : null]));
     }
     if (v.password) data.password = v.password;
+    if (sendLink && !v.password) data.sendInvite = true;
     if (!user && hasDirectory) data.addToDirectory = addToDirectory;
     try {
       if (user) await update.mutateAsync({ id: user._id, data });
@@ -229,18 +257,28 @@ function UserModal({ opened, onClose, user }: { opened: boolean; onClose: () => 
             <TextInput label="Phone" type="tel" {...form.getInputProps("phone")} />
           </SimpleGrid>
 
-          <PasswordInput
-            label={user ? "Reset password" : "Password"}
-            description={
-              user
-                ? "Leave blank to keep the current password. Resetting signs the user out everywhere."
-                : `At least ${MIN_PASSWORD} characters. Share it with the user securely.`
-            }
-            withAsterisk={!user}
-            autoComplete="new-password"
-            visibilityToggleButtonProps={{ "aria-label": "Show or hide password" }}
-            {...form.getInputProps("password")}
-          />
+          {!user && mail?.ready && (
+            <Switch
+              label="Email them a link to choose their password"
+              description="A welcome email with their username. No password to make up and pass on."
+              checked={sendLink}
+              onChange={(e) => setLinkChoice(e.currentTarget.checked)}
+            />
+          )}
+          {!sendLink && (
+            <PasswordInput
+              label={user ? "Reset password" : "Password"}
+              description={
+                user
+                  ? "Leave blank to keep the current password. Resetting signs the user out everywhere."
+                  : `At least ${MIN_PASSWORD} characters. Share it with the user securely.`
+              }
+              withAsterisk={!user}
+              autoComplete="new-password"
+              visibilityToggleButtonProps={{ "aria-label": "Show or hide password" }}
+              {...form.getInputProps("password")}
+            />
+          )}
 
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
             <Select
@@ -362,6 +400,7 @@ export default function UsersPage() {
   const remove = useDeleteUser();
   const [modal, setModal] = useState<{ user: User | null } | null>(null);
   const [resetting, setResetting] = useState<User | null>(null);
+  const { data: mail } = useEmailStatus();
 
   const columns = useMemo<DataTableColumn<User>[]>(
     () => [
@@ -390,6 +429,7 @@ export default function UsersPage() {
               </Text>
               <Text size="xs" c="dimmed" truncate>
                 @{u.username}
+                {mail?.ready && !u.email && " · no email address"}
               </Text>
             </div>
           </Group>
@@ -513,7 +553,7 @@ export default function UsersPage() {
           ),
       },
     ],
-    [me._id, accessOptions]
+    [me._id, accessOptions, mail?.ready]
   );
 
   const toggleActive = (u: User) => {
@@ -576,6 +616,11 @@ export default function UsersPage() {
               <Menu.Item leftSection={<IconKey size={16} />} onClick={() => setResetting(u)}>
                 Reset password
               </Menu.Item>
+              {mail?.ready && u.email && u.isActive && (
+                <Menu.Item leftSection={<IconMail size={16} />} onClick={() => sendPasswordLink(u)}>
+                  Email a password link
+                </Menu.Item>
+              )}
               <Menu.Item
                 leftSection={u.isActive ? <IconUserOff size={16} /> : <IconUserCheck size={16} />}
                 disabled={self}

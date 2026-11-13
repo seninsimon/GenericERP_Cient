@@ -78,6 +78,8 @@ export type UserInput = {
   appAccess?: Record<string, string | null>;
   // new people: their entry in the People directory too (when it's installed)
   addToDirectory?: boolean;
+  // new people: email them a link to choose their password (instead of one)
+  sendInvite?: boolean;
 };
 
 export type RoleInput = {

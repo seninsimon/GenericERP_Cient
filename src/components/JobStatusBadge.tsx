@@ -35,6 +35,10 @@ export function jobResultSummary(job: Job): string {
   if (job.status === "failed") return job.error ?? "Failed";
   if (!job.result) return job.status === "running" && job.progress ? `${formatNumber(job.progress)} processed` : "";
   if (job.type === "export") return `${formatNumber(job.result.rows ?? 0)} rows`;
-  const added = `${formatNumber(job.result.inserted ?? 0)} added`;
-  return job.result.failed ? `${added}, ${formatNumber(job.result.failed)} failed` : added;
+  const parts = [
+    `${formatNumber(job.result.inserted ?? 0)} added`,
+    ...(job.result.updated ? [`${formatNumber(job.result.updated)} updated`] : []),
+    ...(job.result.failed ? [`${formatNumber(job.result.failed)} with problems`] : []),
+  ];
+  return parts.join(", ");
 }

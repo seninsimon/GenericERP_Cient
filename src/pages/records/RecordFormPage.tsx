@@ -31,6 +31,9 @@ import {
   type TableSchemaInfo,
 } from "../../features/records/schema";
 import { useAppCrumb } from "../../features/apps/appMenu";
+import { LiveChangeBar } from "../../features/live/LiveChangeBar";
+import { useLiveChanges } from "../../features/live/live";
+import { modals } from "@mantine/modals";
 
 type Values = Record<string, unknown>;
 type Snapshot = { values: Values; departmentIds: string[]; files: Record<string, string[]> };
@@ -52,6 +55,11 @@ export default function RecordFormPage() {
   const schema = schemaQuery.data as TableSchemaInfo | undefined;
   const recordQuery = useRecord(table, id);
   const record = recordQuery.data;
+  // the version this form started from: saving asks before replacing what
+  // someone else saved meanwhile
+  const openedVersion = useRef<string | null>(null);
+  const [formSince] = useState(() => Date.now());
+  const liveChanges = useLiveChanges(table, formSince, id ?? "-");
   const create = useCreateRecord(table);
   const update = useUpdateRecord(table);
   const queryClient = useQueryClient();
@@ -123,6 +131,7 @@ export default function RecordFormPage() {
     setExistingFiles(nextFiles);
     setDepartmentIds(nextDepartments);
     setInitial({ values: nextValues, departmentIds: nextDepartments, files: nextFiles });
+    openedVersion.current = editing ? ((record!._updatedAt as string | undefined) ?? null) : null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schema, record, editing, initial, location.state]);
 
@@ -186,7 +195,8 @@ export default function RecordFormPage() {
   );
 
   /* ---------- save ---------- */
-  const save = async () => {
+  // overwrite: "Save mine anyway" after someone else saved meanwhile
+  const save = async (overwrite = false) => {
     if (!schema || saving) return;
 
     // same rules as the API: required fields, and a department when one must be chosen
@@ -235,7 +245,7 @@ export default function RecordFormPage() {
         void queryClient.invalidateQueries({ queryKey: ["related"] });
       };
       if (editing) {
-        await update.mutateAsync({ id: id!, data: payload });
+        await update.mutateAsync({ id: id!, data: { ...payload, ...(openedVersion.current && !overwrite ? { _expectedUpdatedAt: openedVersion.current } : {}) } });
         refreshLines();
         navigate(recordPath(table, id!), { replace: true });
       } else {
@@ -246,7 +256,24 @@ export default function RecordFormPage() {
     } catch (err) {
       saved.current = false;
       const fieldErrors = fieldErrorsOf(err);
-      if (fieldErrors) {
+      if (fieldErrors?._conflict) {
+        // someone else saved it after this form was opened
+        modals.openConfirmModal({
+          title: `${fieldErrors._conflict} changed this record while you were editing`,
+          children: (
+            <Text size="sm">
+              Save yours and replace their changes, or look at their version first (what you typed here is then lost).
+            </Text>
+          ),
+          labels: { confirm: "Save mine anyway", cancel: "See their version" },
+          confirmProps: { color: "orange" },
+          onConfirm: () => void save(true),
+          onCancel: () => {
+            saved.current = true; // leave without "unsaved changes"
+            navigate(recordPath(table, id!), { replace: true });
+          },
+        });
+      } else if (fieldErrors) {
         // "lines.create.1.qty" belong to the line grid, the rest to the fields above
         const own = Object.fromEntries(Object.entries(fieldErrors).filter(([k]) => !k.includes(".")));
         if (lineItems.showErrors(fieldErrors, linesWhere.current) && !Object.keys(own).length) {
@@ -323,6 +350,7 @@ export default function RecordFormPage() {
           }}
         >
           <Stack gap="lg">
+            {editing && <LiveChangeBar changes={liveChanges} subject="record" editing />}
             <Section>
               {!ready ? (
                 <Grid gutter="lg">

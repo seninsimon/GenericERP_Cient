@@ -72,6 +72,8 @@ import {
   type TableSchemaInfo,
 } from "../../features/records/schema";
 import { useAppCrumb } from "../../features/apps/appMenu";
+import { LiveChangeBar } from "../../features/live/LiveChangeBar";
+import { useLiveChanges } from "../../features/live/live";
 
 // an icon and a word, the word hidden on phones
 const ViewLabel = ({ icon: I, text }: { icon: Icon; text: string }) => (
@@ -112,6 +114,9 @@ const loadPeople = (search: string) =>
 
 export default function RecordListPage() {
   const { table = "" } = useParams();
+  // "Hana changed this list · Refresh" (changes by others since it was loaded)
+  const [liveSince, setLiveSince] = useState(() => Date.now());
+  const liveChanges = useLiveChanges(table, liveSince);
   const appCrumb = useAppCrumb(); // "HR & leave" when inside an app
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -351,6 +356,14 @@ export default function RecordListPage() {
 
   return (
     <Page title={title} breadcrumbs={[appCrumb, { label: title }]}>
+      <LiveChangeBar
+        changes={liveChanges}
+        subject="list"
+        onRefresh={() => {
+          setLiveSince(Date.now());
+          qc.invalidateQueries({ queryKey: ["tableData", table] });
+        }}
+      />
       <PageHeader
         title={title}
         meta={
@@ -393,7 +406,7 @@ export default function RecordListPage() {
               )}
               {/* tablets and up: separate buttons */}
               <Group gap="xs" visibleFrom="sm">
-                {perms.create && (
+                {(perms.create || perms.edit) && (
                   <Button variant="default" leftSection={<IconUpload size={16} />} onClick={() => setImportOpen(true)}>
                     Import
                   </Button>
@@ -424,7 +437,7 @@ export default function RecordListPage() {
                   </ActionIcon>
                 </Menu.Target>
                 <Menu.Dropdown>
-                  {perms.create && (
+                  {(perms.create || perms.edit) && (
                     <Menu.Item leftSection={<IconUpload size={16} />} onClick={() => setImportOpen(true)}>
                       Import CSV
                     </Menu.Item>
@@ -617,7 +630,7 @@ export default function RecordListPage() {
         </Box>
       )}
 
-      {schema && perms.create && (
+      {schema && (perms.create || perms.edit) && (
         <ImportCsvModal
           opened={importOpen}
           onClose={() => setImportOpen(false)}

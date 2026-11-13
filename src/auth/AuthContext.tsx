@@ -15,6 +15,8 @@ export type CurrentUser = {
   email: string;
   phone: string;
   isActive: boolean;
+  // "Email me": now | daily (in the morning summary) | never
+  emailPref?: "now" | "daily" | "never";
   lastLoginAt: string | null;
   role: {
     _id: string;

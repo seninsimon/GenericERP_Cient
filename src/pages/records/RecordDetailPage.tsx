@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ActionIcon,
   Badge,
@@ -42,6 +43,8 @@ import {
   type TableSchemaInfo,
 } from "../../features/records/schema";
 import { useAppCrumb } from "../../features/apps/appMenu";
+import { LiveChangeBar } from "../../features/live/LiveChangeBar";
+import { useLiveChanges } from "../../features/live/live";
 
 function DetailValue({
   column,
@@ -72,6 +75,10 @@ function DetailValue({
 export default function RecordDetailPage() {
   const { table = "", id = "" } = useParams();
   const appCrumb = useAppCrumb(); // "HR & leave" when inside an app
+  // "Hana changed this record · Refresh"
+  const qc = useQueryClient();
+  const [liveSince, setLiveSince] = useState(() => Date.now());
+  const liveChanges = useLiveChanges(table, liveSince, id);
   const navigate = useNavigate();
   const title = tableTitle(table);
   const listPath = tablePath(table);
@@ -131,6 +138,15 @@ export default function RecordDetailPage() {
       breadcrumbs={[appCrumb, { label: title, to: listPath }, { label: loading ? "…" : name }]}
       width="wide"
     >
+      <LiveChangeBar
+        changes={liveChanges}
+        subject="record"
+        onRefresh={() => {
+          setLiveSince(Date.now());
+          for (const key of ["singleData", "related"]) qc.invalidateQueries({ queryKey: [key] });
+          qc.invalidateQueries({ queryKey: ["audit", "record", table, id] });
+        }}
+      />
       <PageHeader
         title={loading ? <Skeleton h={28} w={220} /> : name}
         meta={

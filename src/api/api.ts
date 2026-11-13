@@ -43,7 +43,7 @@ export const logout = () => api.post("/auth/logout");
 
 export const getMe = () => api.get("/auth/me");
 
-export const updateProfile = (data: { fullName?: string; email?: string; phone?: string }) =>
+export const updateProfile = (data: { fullName?: string; email?: string; phone?: string; emailPref?: "now" | "daily" | "never" }) =>
   api.put("/auth/profile", data);
 
 export const changePassword = (data: { currentPassword: string; newPassword: string }) =>
@@ -244,6 +244,7 @@ export type Job = {
   result: null | {
     rows?: number;
     inserted?: number;
+    updated?: number;
     failed?: number;
     errors?: { row: number; message: string }[];
   };

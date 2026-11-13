@@ -3,7 +3,9 @@ import { AppShell, Center, Loader } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { Outlet } from "react-router-dom";
 
+import { useCurrentUser } from "../auth/AuthContext";
 import { PageMetaProvider } from "../components/ui/Page";
+import { useLiveConnection } from "../features/live/live";
 import { usePreferences } from "../lib/preferences";
 import CommandPalette from "./CommandPalette";
 import Header from "./Header";
@@ -19,6 +21,9 @@ export default function AppLayout() {
   // tablets get the rail by default; phones get a drawer
   const isTablet = useMediaQuery("(min-width: 48em) and (max-width: 75em)") ?? false;
   const collapsed = sidebarCollapsed || isTablet;
+  // live updates: the bell at once, "Hana changed this" on open screens
+  const { user } = useCurrentUser();
+  useLiveConnection(user._id);
 
   return (
     <PageMetaProvider>

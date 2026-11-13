@@ -40,7 +40,8 @@ function TypeCell({ job }: { job: Job }) {
 }
 
 function downloadLabel(job: Job) {
-  return job.type === "import" ? "Errors CSV" : "Download CSV";
+  // imports: the rows with problems, plus a "Problem" column, to fix and import again
+  return job.type === "import" ? "Download the rows to fix" : "Download CSV";
 }
 
 function JobDetails({ job, onClose }: { job: Job | null; onClose: () => void }) {
@@ -99,6 +100,12 @@ function JobDetails({ job, onClose }: { job: Job | null; onClose: () => void }) 
                 Problems ({formatNumber(job.result.errors.length)}
                 {job.result.failed && job.result.failed > job.result.errors.length ? ` of ${formatNumber(job.result.failed)}` : ""})
               </Text>
+              {job.hasFile && (
+                <Text size="sm" c="dimmed">
+                  Download the rows to fix, correct them in that file (the Problem column says what to change), and import it again.
+                  The rows that went in aren't in it.
+                </Text>
+              )}
               <ScrollArea.Autosize mah={360}>
                 <Table verticalSpacing={6} fz="sm" aria-label="Import problems">
                   <Table.Thead>

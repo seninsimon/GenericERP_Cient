@@ -1,4 +1,4 @@
-import { lazy, type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Notifications } from "@mantine/notifications";
 import { ModalsProvider } from "@mantine/modals";
@@ -26,6 +26,9 @@ const RolesPage = lazy(() => import("./pages/settings/RolesPage"));
 const DepartmentsPage = lazy(() => import("./pages/settings/DepartmentsPage"));
 const AuditLogPage = lazy(() => import("./pages/settings/AuditLogPage"));
 const AppsPage = lazy(() => import("./pages/settings/AppsPage"));
+const EmailSettingsPage = lazy(() => import("./pages/settings/EmailSettingsPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/PasswordPages").then((m) => ({ default: m.ForgotPasswordPage })));
+const SetPasswordPage = lazy(() => import("./pages/PasswordPages").then((m) => ({ default: m.SetPasswordPage })));
 
 // Admin-only pages (the API enforces this too).
 function AdminOnly({ children }: { children: ReactNode }) {
@@ -46,7 +49,14 @@ export default function App() {
         <Notifications position="top-right" limit={4} />
         <ErrorBoundary>
           <ServerLoader>
-            {/* shows the login page until someone is signed in */}
+            <Routes>
+              {/* "Forgot password?" and the links from password emails: no sign-in */}
+              <Route path="forgot-password" element={<Suspense fallback={null}><ForgotPasswordPage /></Suspense>} />
+              <Route path="set-password" element={<Suspense fallback={null}><SetPasswordPage /></Suspense>} />
+              <Route
+                path="*"
+                element={
+            /* shows the login page until someone is signed in */
             <AuthProvider>
               <Routes>
                 <Route element={<AppLayout />}>
@@ -69,6 +79,7 @@ export default function App() {
                   <Route path="settings/tables/:table" element={<AdminOnly><TableSettingsPage /></AdminOnly>} />
                   <Route path="settings/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
                   <Route path="settings/apps" element={<AdminOnly><AppsPage /></AdminOnly>} />
+                  <Route path="settings/email" element={<AdminOnly><EmailSettingsPage /></AdminOnly>} />
                   <Route path="settings/roles" element={<AdminOnly><RolesPage /></AdminOnly>} />
                   <Route path="settings/departments" element={<AdminOnly><DepartmentsPage /></AdminOnly>} />
                   <Route path="settings/audit" element={<AdminOnly><AuditLogPage /></AdminOnly>} />
@@ -77,6 +88,9 @@ export default function App() {
                 </Route>
               </Routes>
             </AuthProvider>
+                }
+              />
+            </Routes>
           </ServerLoader>
         </ErrorBoundary>
       </ModalsProvider>
