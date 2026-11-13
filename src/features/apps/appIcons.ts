@@ -53,3 +53,34 @@ export const ICONS: Record<string, Icon> = {
 };
 
 export const appIcon = (name: string): Icon => ICONS[name] ?? IconApps;
+
+// Each app gets its own colour, so apps are told apart at a glance (in the
+// sidebar, the app launcher, Home and Manage apps). By icon, so an app keeps
+// its colour everywhere; unknown icons get a stable colour from their name.
+const COLORS: Record<string, string> = {
+  IconBuildingSkyscraper: "blue",
+  IconDeviceDesktop: "cyan",
+  IconDeviceLaptop: "cyan",
+  IconReceiptRefund: "orange",
+  IconLifebuoy: "red",
+  IconUsers: "grape",
+  IconBuildingWarehouse: "teal",
+  IconChecklist: "indigo",
+  IconTargetArrow: "pink",
+  IconStethoscope: "green",
+  IconSchool: "yellow",
+  IconCash: "lime",
+  IconReceipt: "orange",
+  IconShoppingCart: "teal",
+  IconHeartHandshake: "pink",
+  IconHeadset: "violet",
+  IconBriefcase: "blue",
+  IconAddressBook: "cyan",
+  IconPackage: "teal",
+  IconBuildingStore: "orange",
+  IconSparkles: "violet",
+  IconTable: "gray",
+};
+const SPARE = ["blue", "teal", "grape", "orange", "pink", "cyan", "lime", "violet", "red", "green", "indigo", "yellow"];
+export const appColor = (name: string) =>
+  COLORS[name] ?? SPARE[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % SPARE.length];

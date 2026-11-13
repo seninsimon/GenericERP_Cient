@@ -1,11 +1,13 @@
-import { Fragment, useMemo } from "react";
-import { ActionIcon, Box, Group, Kbd, Menu, NavLink, ScrollArea, Skeleton, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { Fragment, useMemo, useState } from "react";
+import { ActionIcon, Box, Collapse, Group, Kbd, Menu, NavLink, Popover, ScrollArea, SimpleGrid, Skeleton, Stack, Text, TextInput, Tooltip, UnstyledButton } from "@mantine/core";
 import {
+  IconChevronDown,
   IconLayoutGrid,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconSearch,
   IconSelector,
+  IconSettings,
   IconTable,
 } from "@tabler/icons-react";
 import { spotlight } from "@mantine/spotlight";
@@ -13,7 +15,6 @@ import { NavLink as RouterLink, useLocation, useNavigate } from "react-router-do
 
 import { useCurrentUser } from "../auth/AuthContext";
 import { AppIcon } from "../features/apps/AppIcon";
-import { appIcon } from "../features/apps/appIcons";
 import { appPath, useAppMenu, useCurrentApp, type LauncherApp, type MenuTable } from "../features/apps/appMenu";
 import { usePreferences } from "../lib/preferences";
 import { ADMIN_NAV, MAIN_NAV, tablePath, tableTitle, type NavItem } from "./nav";
@@ -105,52 +106,175 @@ function SectionLabel({ children, collapsed }: { children: string; collapsed: bo
   );
 }
 
-// The current app at the top of its menu; opens a list to switch apps.
+// An app in the sidebar list (Home, settings): its coloured icon and name.
+function AppItem({ app, collapsed, onNavigate }: { app: LauncherApp; collapsed: boolean; onNavigate: () => void }) {
+  if (collapsed) {
+    return (
+      <Tooltip label={app.name} position="right" withArrow={false} openDelay={0}>
+        <UnstyledButton component={RouterLink} to={appPath(app.key)} onClick={onNavigate} aria-label={app.name} className={classes.railLink}>
+          <AppIcon name={app.icon} size={30} />
+        </UnstyledButton>
+      </Tooltip>
+    );
+  }
+  return (
+    <NavLink
+      component={RouterLink}
+      to={appPath(app.key)}
+      label={app.name}
+      leftSection={<AppIcon name={app.icon} size={26} />}
+      onClick={onNavigate}
+      className={classes.appLink}
+    />
+  );
+}
+
+// The app launcher: every app as a coloured tile, like a phone's home screen.
+function AppGrid({ apps, current, onPick }: { apps: LauncherApp[]; current: string | null; onPick: (to: string) => void }) {
+  const { isAdmin } = useCurrentUser();
+  const [query, setQuery] = useState("");
+  const shown = query ? apps.filter((a) => a.name.toLowerCase().includes(query.toLowerCase())) : apps;
+  return (
+    <Stack gap="xs">
+      {apps.length > 9 && (
+        <TextInput size="xs" placeholder="Find an app" leftSection={<IconSearch size={14} />} value={query} onChange={(e) => setQuery(e.currentTarget.value)} data-autofocus aria-label="Find an app" />
+      )}
+      <SimpleGrid cols={3} spacing={4} verticalSpacing={4}>
+        {shown.map((a) => (
+          <UnstyledButton
+            key={a.key}
+            className={classes.appTile}
+            data-active={a.key === current || undefined}
+            aria-current={a.key === current ? "page" : undefined}
+            onClick={() => onPick(appPath(a.key))}
+          >
+            <AppIcon name={a.icon} size={40} />
+            <Text size="xs" fw={500} ta="center" lineClamp={2} lh={1.25}>
+              {a.name}
+            </Text>
+          </UnstyledButton>
+        ))}
+      </SimpleGrid>
+      {!shown.length && (
+        <Text size="xs" c="dimmed" ta="center" py="sm">
+          No app called "{query}"
+        </Text>
+      )}
+      <Group justify="space-between" pt={6} className={classes.gridFooter}>
+        <UnstyledButton className={classes.gridLink} onClick={() => onPick("/")}>
+          <IconLayoutGrid size={14} /> Home
+        </UnstyledButton>
+        {isAdmin && (
+          <UnstyledButton className={classes.gridLink} onClick={() => onPick("/settings/apps")}>
+            <IconSettings size={14} /> Manage apps
+          </UnstyledButton>
+        )}
+      </Group>
+    </Stack>
+  );
+}
+
+// The current app at the top of its menu; opens the launcher to switch apps.
 function AppSwitcher({ app, apps, collapsed, onNavigate }: { app: LauncherApp; apps: LauncherApp[]; collapsed: boolean; onNavigate: () => void }) {
   const navigate = useNavigate();
+  const [opened, setOpened] = useState(false);
   const go = (to: string) => {
+    setOpened(false);
     navigate(to);
     onNavigate();
   };
   return (
-    <Menu position={collapsed ? "right-start" : "bottom-start"} width={260} shadow="md" withinPortal>
-      <Menu.Target>
+    <Popover opened={opened} onChange={setOpened} position={collapsed ? "right-start" : "bottom-start"} width={300} shadow="md" withinPortal trapFocus>
+      <Popover.Target>
         {collapsed ? (
-          <UnstyledButton className={classes.railLink} aria-label={`${app.name}: switch app`}>
-            <AppIcon name={app.icon} size={30} />
-          </UnstyledButton>
+          <Tooltip label={`${app.name}: switch app`} position="right" withArrow={false} disabled={opened}>
+            <UnstyledButton className={classes.railLink} aria-label={`${app.name}: switch app`} aria-expanded={opened} onClick={() => setOpened((o) => !o)}>
+              <AppIcon name={app.icon} size={30} variant="filled" />
+            </UnstyledButton>
+          </Tooltip>
         ) : (
-          <UnstyledButton className={classes.appSwitcher} aria-label={`${app.name}: switch app`}>
+          <UnstyledButton className={classes.appSwitcher} aria-label={`${app.name}: switch app`} aria-expanded={opened} onClick={() => setOpened((o) => !o)}>
             <Group gap={10} wrap="nowrap">
-              <AppIcon name={app.icon} size={30} />
-              <Text fw={600} size="sm" truncate style={{ flex: 1 }}>
-                {app.name}
-              </Text>
+              <AppIcon name={app.icon} size={32} variant="filled" />
+              <Box style={{ flex: 1, minWidth: 0 }}>
+                <Text fw={600} size="sm" truncate lh={1.2}>
+                  {app.name}
+                </Text>
+                <Text size="xs" c="dimmed" lh={1.2}>
+                  Switch app
+                </Text>
+              </Box>
               <IconSelector size={16} color="var(--mantine-color-dimmed)" />
             </Group>
           </UnstyledButton>
         )}
-      </Menu.Target>
-      <Menu.Dropdown>
-        <Menu.Item leftSection={<IconLayoutGrid size={16} />} onClick={() => go("/")}>
-          All apps
-        </Menu.Item>
-        <Menu.Divider />
-        {apps.map((a) => {
-          const I = appIcon(a.icon);
-          return (
-            <Menu.Item
-              key={a.key}
-              leftSection={<I size={16} stroke={1.75} />}
-              onClick={() => go(appPath(a.key))}
-              fw={a.key === app.key ? 600 : undefined}
-            >
-              {a.name}
-            </Menu.Item>
-          );
-        })}
-      </Menu.Dropdown>
-    </Menu>
+      </Popover.Target>
+      <Popover.Dropdown p="xs">
+        <AppGrid apps={apps} current={app.key} onPick={go} />
+      </Popover.Dropdown>
+    </Popover>
+  );
+}
+
+// Administration (admins): folds away, so the sidebar is about the work.
+// Open on settings pages; otherwise as the admin last left it.
+function AdminSection({ collapsed, isActive, onNavigate }: { collapsed: boolean; isActive: (to: string) => boolean; onNavigate: () => void }) {
+  const { adminOpen, setPreference } = usePreferences();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const inSettings = location.pathname.startsWith("/settings");
+  const open = adminOpen || inSettings;
+
+  if (collapsed) {
+    // icon rail: one gear, the pages in a menu beside it
+    return (
+      <>
+        <Box className={classes.divider} />
+        <Menu position="right-start" width={240} shadow="md" withinPortal>
+          <Menu.Target>
+            <UnstyledButton className={classes.railLink} aria-label="Administration" data-active={inSettings || undefined}>
+              <IconSettings size={20} stroke={1.75} />
+            </UnstyledButton>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Label>Administration</Menu.Label>
+            {ADMIN_NAV.map((item) => (
+              <Menu.Item
+                key={item.to}
+                leftSection={<item.icon size={16} stroke={1.75} />}
+                onClick={() => {
+                  navigate(item.to);
+                  onNavigate();
+                }}
+                fw={isActive(item.to) ? 600 : undefined}
+              >
+                {item.label}
+              </Menu.Item>
+            ))}
+          </Menu.Dropdown>
+        </Menu>
+      </>
+    );
+  }
+  return (
+    <>
+      <UnstyledButton
+        className={classes.sectionToggle}
+        onClick={() => setPreference("adminOpen", !open)}
+        aria-expanded={open}
+        disabled={inSettings}
+      >
+        <span>Administration</span>
+        {!inSettings && <IconChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : undefined, transition: "transform 150ms" }} />}
+      </UnstyledButton>
+      <Collapse in={open}>
+        <Stack gap={2}>
+          {ADMIN_NAV.map((item) => (
+            <Item key={item.to} item={item} collapsed={false} active={isActive(item.to)} onNavigate={onNavigate} />
+          ))}
+        </Stack>
+      </Collapse>
+    </>
   );
 }
 
@@ -234,16 +358,7 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
 
           {app && <AppSwitcher app={app} apps={apps} collapsed={collapsed} onNavigate={onNavigate} />}
           {showApps && <SectionLabel collapsed={collapsed}>Apps</SectionLabel>}
-          {showApps &&
-            apps.map((a) => (
-              <Item
-                key={a.key}
-                item={{ label: a.name, to: appPath(a.key), icon: appIcon(a.icon) }}
-                collapsed={collapsed}
-                active={false}
-                onNavigate={onNavigate}
-              />
-            ))}
+          {showApps && apps.map((a) => <AppItem key={a.key} app={a} collapsed={collapsed} onNavigate={onNavigate} />)}
           {!app && !showApps && !grouped && <SectionLabel collapsed={collapsed}>Tables</SectionLabel>}
           {isLoading
             ? Array.from({ length: 3 }).map((_, i) => (
@@ -270,14 +385,7 @@ export default function Sidebar({ collapsed, onNavigate }: { collapsed: boolean;
             </Text>
           )}
 
-          {isAdmin && (
-            <>
-              <SectionLabel collapsed={collapsed}>Administration</SectionLabel>
-              {ADMIN_NAV.map((item) => (
-                <Item key={item.to} item={item} collapsed={collapsed} active={isActive(item.to)} onNavigate={onNavigate} />
-              ))}
-            </>
-          )}
+          {isAdmin && <AdminSection collapsed={collapsed} isActive={isActive} onNavigate={onNavigate} />}
         </Stack>
       </ScrollArea>
 

@@ -97,6 +97,7 @@
 .appSwitcher {
   width: 100%;
   margin-top: 10px;
+  margin-bottom: 6px;
   padding: 8px;
   border: 1px solid var(--app-border);
   border-radius: var(--mantine-radius-md);
@@ -105,4 +106,75 @@
 
 .appSwitcher:hover {
   border-color: var(--mantine-color-default-border);
+}
+
+/* an app in the sidebar list: coloured icon, a little taller than a table */
+.appLink {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+/* the app launcher's tiles */
+.appTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px 8px;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid transparent;
+  min-height: 92px;
+}
+
+.appTile:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.appTile[data-active] {
+  border-color: var(--mantine-primary-color-light);
+  background: var(--mantine-primary-color-light);
+}
+
+.gridFooter {
+  border-top: 1px solid var(--app-border);
+}
+
+.gridLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  padding: 4px 6px;
+  border-radius: var(--mantine-radius-sm);
+}
+
+.gridLink:hover {
+  color: var(--mantine-color-text);
+  background: var(--mantine-color-default-hover);
+}
+
+/* "Administration" heading that folds its links away */
+.sectionToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mantine-color-dimmed);
+  padding: 14px 12px 4px;
+  border-radius: var(--mantine-radius-sm);
+}
+
+.sectionToggle:not(:disabled):hover {
+  color: var(--mantine-color-text);
+}
+
+.sectionToggle:disabled {
+  cursor: default;
 }

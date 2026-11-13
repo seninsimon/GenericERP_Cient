@@ -137,6 +137,18 @@ shadows in components.**
 - **Order:** Home and workspace pages, then the **Tables** the user can access,
   then **Administration** (admins only). No filter box: finding a table by
   name is the search's job (Ctrl K), which is at the top of the sidebar.
+- **Apps** (3 or more installed):
+  - **On Home and settings pages:** the sidebar lists the apps, each with
+    its **own colour** (`appColor()` in `features/apps/appIcons.ts`, by
+    icon, so an app looks the same everywhere: sidebar, Home, Manage apps,
+    search).
+  - **Inside an app:** its tables, under a **switcher** (coloured icon, name,
+    "Switch app"). The switcher opens the **launcher**: a grid of app
+    tiles, with search from 10 apps on, plus links to Home and Manage apps.
+- **Administration** folds away under its heading:
+  - it remembers open or closed per browser (`adminOpen`), and is always
+    open on settings pages;
+  - in the icon rail it becomes a single gear with the pages in a menu.
 - **Active item:** accent background. One active item at a time.
 - **Collapsing:** desktops can collapse to a 64 px **icon rail**, with tooltips
   on every icon and the choice remembered. Tablets get the rail by default.
