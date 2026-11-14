@@ -4,6 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { noticePath } from "../../layout/nav";
+import { alertPerson } from "../../lib/alerts";
+import type { ChatOverview } from "../chat/useChat";
 
 // Live updates (GET /api/events, Server-Sent Events). The bell and its pop-up
 // are instant. Open lists and records don't redraw by themselves (rows moving
@@ -45,6 +47,8 @@ export function useLiveConnection(meId: string) {
     source.addEventListener("notification", (e) => {
       const n = JSON.parse((e as MessageEvent).data) as { title: string; table: string | null; id: string | null };
       qc.invalidateQueries({ queryKey: ["notifications"] });
+      // the bell only gets what others did that concerns you: chime / desktop
+      alertPerson(n.title, n.table && n.id ? "Click to open" : "", n.table && n.id ? () => navigate(noticePath(n.table!, n.id!)) : undefined);
       notifications.show({
         title: n.title,
         message: n.table && n.id ? "Click to open" : "",
@@ -62,9 +66,23 @@ export function useLiveConnection(meId: string) {
       qc.invalidateQueries({ queryKey: ["tile"] }); // dashboard counts
     });
     source.addEventListener("chat", (e) => {
-      const c = JSON.parse((e as MessageEvent).data) as { channel: string; by: string };
+      const c = JSON.parse((e as MessageEvent).data) as { channel: string; by: string; change: string };
       qc.invalidateQueries({ queryKey: ["chatMessages", c.channel] });
-      if (c.by !== meId) qc.invalidateQueries({ queryKey: ["chat"] }); // unread counts
+      if (c.by === meId) return;
+      qc.invalidateQueries({ queryKey: ["chat"] }); // unread counts
+      // a new message in a direct message or group: chime / desktop, unless
+      // you're looking at that conversation (mentions in channels come through
+      // the bell; busy channels stay quiet)
+      if (c.change !== "message") return;
+      const channel = qc.getQueryData<ChatOverview>(["chat"])?.channels.find((ch) => ch._id === c.channel);
+      if (!channel || (channel.kind !== "dm" && channel.kind !== "group")) return;
+      const open = window.location.pathname === "/chat" && new URLSearchParams(window.location.search).get("c") === c.channel;
+      if (open && document.visibilityState === "visible" && document.hasFocus()) return;
+      alertPerson(
+        channel.kind === "dm" ? `New message from ${channel.name}` : `New message in ${channel.name}`,
+        "Click to open the conversation",
+        () => navigate(`/chat?c=${encodeURIComponent(c.channel)}`)
+      );
     });
     source.addEventListener("comment", (e) => {
       const c = JSON.parse((e as MessageEvent).data) as { table: string; id: string };

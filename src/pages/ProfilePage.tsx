@@ -26,6 +26,7 @@ import { changePassword, errorMessage, updateProfile } from "../api/api";
 import { useCurrentUser } from "../auth/AuthContext";
 import { Page, Section } from "../components/ui/Page";
 import { ProfilePicture } from "../features/profile/ProfilePicture";
+import { AlertSettings } from "../features/profile/AlertSettings";
 import { usePreferences } from "../lib/preferences";
 import { formatDateTime } from "../lib/format";
 import { ACCENTS, type Accent } from "../theme/theme";
@@ -239,6 +240,8 @@ export default function ProfilePage() {
             </Stack>
           </form>
         </Section>
+
+        <AlertSettings />
 
         <Section title="Appearance" description="Saved on this device.">
           <Stack gap="lg">
