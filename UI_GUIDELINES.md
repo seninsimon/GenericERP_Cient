@@ -132,6 +132,22 @@ shadows in components.**
  248 px (or a 64 px icon rail)
 ```
 
+### Files and pictures (`features/files/`)
+
+- **Open uploads in the in-app viewer:** call `openFiles([...], index)`. Never
+  link to the raw `/uploads/…` URL in a new tab: uploads are served with a
+  `sandbox` security header, under which browsers won't show PDFs.
+- **What the viewer shows:**
+  - pictures large, with previous / next (arrow keys too);
+  - PDFs inside the app (fetched with the sign-in, shown from memory);
+  - video and audio players;
+  - text and CSV as text;
+  - anything else: "No preview" plus **Download** (which saves under the
+    real file name).
+  - On phones it fills the screen.
+- **Thumbnails** sit side by side, never overlapping (each must be
+  clickable). In lists, a click opens the viewer, not the record.
+
 ### Sidebar (`src/layout/Sidebar.tsx`)
 
 - **Order:** Home and workspace pages, then the **Tables** the user can access,

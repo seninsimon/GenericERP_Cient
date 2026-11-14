@@ -53,6 +53,7 @@ import { MessageText } from "../features/chat/MessageText";
 import { REACTIONS, useChatOverview, useMessages, type ChatChannel, type ChatMessage } from "../features/chat/useChat";
 import { initialsOf } from "../layout/UserMenu";
 import { formatDateTime } from "../lib/format";
+import { openFiles } from "../features/files/viewerStore";
 
 const FILE_BASE = import.meta.env.VITE_FILE_BASE_URL ?? "";
 const fileUrl = (url: string) => (url.startsWith("/uploads/") ? `${FILE_BASE}${url}` : url);
@@ -248,15 +249,15 @@ function MessageItem({ m, first, onEdit }: { m: ChatMessage; first: boolean; onE
         ) : (
           <>
             {m.body && <MessageText body={m.body} />}
-            {m.attachments.map((a) =>
+            {m.attachments.map((a, i) =>
               isImage(a.name) ? (
-                <Anchor key={a.url} href={fileUrl(a.url)} target="_blank" rel="noopener noreferrer">
+                <UnstyledButton key={a.url} onClick={() => openFiles(m.attachments, i)} aria-label={`View ${a.name}`} style={{ display: "block", cursor: "zoom-in" }}>
                   <Image src={fileUrl(a.url)} alt={a.name} maw={280} mah={220} fit="contain" radius="md" mt={4} />
-                </Anchor>
+                </UnstyledButton>
               ) : (
                 <Group key={a.url} gap={6} mt={4}>
                   <IconPaperclip size={14} />
-                  <Anchor href={fileUrl(a.url)} target="_blank" rel="noopener noreferrer" size="sm">
+                  <Anchor component="button" type="button" onClick={() => openFiles(m.attachments, i)} size="sm">
                     {a.name}
                   </Anchor>
                 </Group>

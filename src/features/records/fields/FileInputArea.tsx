@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 import {
+  Anchor,
   ActionIcon,
   Box,
   FileButton,
@@ -17,6 +18,7 @@ import {
 import { IconFile, IconPhoto, IconUpload, IconX } from "@tabler/icons-react";
 
 import { fileNameFromUrl, fileUrl } from "../../../lib/format";
+import { openFiles } from "../../files/viewerStore";
 import { columnLabel, IMAGE_TYPES, type RecordColumn } from "../schema";
 
 const bytes = (n: number) =>
@@ -68,7 +70,7 @@ export function FileInputArea({
   const hasFiles = existing.length + pending.length > 0;
   const noun = isImage ? (multiple ? "images" : "an image") : multiple ? "files" : "a file";
 
-  const tile = (key: string, name: string, preview: string | null, detail: string, onRemove: () => void) =>
+  const tile = (key: string, name: string, preview: string | null, detail: string, onRemove: () => void, onOpen?: () => void) =>
     isImage ? (
       <Box key={key} pos="relative">
         <Image
@@ -77,7 +79,8 @@ export function FileInputArea({
           h={96}
           radius="md"
           fit="cover"
-          style={{ border: "1px solid var(--app-border)" }}
+          onClick={onOpen}
+          style={{ border: "1px solid var(--app-border)", cursor: onOpen ? "zoom-in" : undefined }}
         />
         <ActionIcon
           variant="default"
@@ -101,9 +104,17 @@ export function FileInputArea({
           <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
             <IconFile size={16} />
             <Box style={{ minWidth: 0 }}>
-              <Text size="sm" truncate>
-                {name}
-              </Text>
+              {onOpen ? (
+                <Anchor component="button" type="button" size="sm" onClick={onOpen} style={{ display: "block", maxWidth: "100%" }}>
+                  <Text span size="sm" truncate>
+                    {name}
+                  </Text>
+                </Anchor>
+              ) : (
+                <Text size="sm" truncate>
+                  {name}
+                </Text>
+              )}
               {detail && (
                 <Text size="xs" c="dimmed">
                   {detail}
@@ -170,14 +181,18 @@ export function FileInputArea({
         {hasFiles &&
           (isImage ? (
             <SimpleGrid cols={{ base: 2, xs: 3, sm: 4 }} spacing="sm">
-              {existing.map((url) => tile(url, fileNameFromUrl(url), fileUrl(url), "", () => onRemoveExisting(url)))}
+              {existing.map((url, i) =>
+                tile(url, fileNameFromUrl(url), fileUrl(url), "", () => onRemoveExisting(url), () => openFiles(existing.map((u) => ({ url: u })), i))
+              )}
               {pending.map((file, i) =>
                 tile(`p-${i}-${file.name}`, file.name, previews[i], bytes(file.size), () => onRemovePending(i))
               )}
             </SimpleGrid>
           ) : (
             <Stack gap={6}>
-              {existing.map((url) => tile(url, fileNameFromUrl(url), null, "Uploaded", () => onRemoveExisting(url)))}
+              {existing.map((url, i) =>
+                tile(url, fileNameFromUrl(url), null, "Uploaded", () => onRemoveExisting(url), () => openFiles(existing.map((u) => ({ url: u })), i))
+              )}
               {pending.map((file, i) =>
                 tile(`p-${i}-${file.name}`, file.name, null, `${bytes(file.size)} · uploads when you save`, () =>
                   onRemovePending(i)

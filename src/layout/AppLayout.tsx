@@ -6,6 +6,7 @@ import { Outlet } from "react-router-dom";
 import { useCurrentUser } from "../auth/AuthContext";
 import { PageMetaProvider } from "../components/ui/Page";
 import { useLiveConnection } from "../features/live/live";
+import { FileViewer } from "../features/files/FileViewer";
 import { usePreferences } from "../lib/preferences";
 import CommandPalette from "./CommandPalette";
 import Header from "./Header";
@@ -27,6 +28,7 @@ export default function AppLayout() {
 
   return (
     <PageMetaProvider>
+      <FileViewer />
       <a href="#main" className="skip-link">
         Skip to content
       </a>

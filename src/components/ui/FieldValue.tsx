@@ -1,4 +1,5 @@
-import { Anchor, Avatar, Badge, Group, Text, Tooltip } from "@mantine/core";
+import { Anchor, Avatar, Badge, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import type { MouseEvent } from "react";
 import { IconCheck, IconFile, IconMinus, IconX } from "@tabler/icons-react";
 import {
   fileNameFromUrl,
@@ -8,6 +9,7 @@ import {
   htmlToText,
   isEmptyValue,
 } from "../../lib/format";
+import { openFiles } from "../../features/files/viewerStore";
 
 // Renders any record value by its column type, the same way everywhere.
 // `variant="table"` = compact single line, `variant="detail"` = full value.
@@ -132,38 +134,60 @@ export function FieldValue({
     case "image":
     case "images": {
       const urls = (Array.isArray(value) ? value : [value]).filter((v): v is string => typeof v === "string");
-      const size = table ? 28 : 72;
+      const size = table ? 28 : 96;
+      // a click opens the viewer (and doesn't also open the row in a list)
+      const open = (i: number) => (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openFiles(urls.map((url) => ({ url })), i);
+      };
       return (
-        <Avatar.Group spacing={table ? "xs" : "sm"}>
-          {urls.slice(0, table ? 3 : 12).map((url) => (
-            <Avatar key={url} src={fileUrl(url)} size={size} radius="sm" alt={fileNameFromUrl(url)} />
+        <Group gap={table ? 4 : "sm"} wrap={table ? "nowrap" : "wrap"}>
+          {urls.slice(0, table ? 3 : 12).map((url, i) => (
+            <UnstyledButton key={url} onClick={open(i)} aria-label={`View ${fileNameFromUrl(url)}`} style={{ borderRadius: 6, cursor: "zoom-in", lineHeight: 0 }}>
+              <img
+                src={fileUrl(url)}
+                alt={fileNameFromUrl(url)}
+                loading="lazy"
+                style={{ width: size, height: size, objectFit: "cover", borderRadius: table ? 4 : 8, border: "1px solid var(--app-border)", display: "block" }}
+              />
+            </UnstyledButton>
           ))}
-          {table && urls.length > 3 && (
-            <Avatar size={size} radius="sm">
-              +{urls.length - 3}
-            </Avatar>
+          {urls.length > (table ? 3 : 12) && (
+            <UnstyledButton onClick={open(table ? 3 : 12)} aria-label="View more pictures">
+              <Avatar size={size} radius="sm">
+                +{urls.length - (table ? 3 : 12)}
+              </Avatar>
+            </UnstyledButton>
           )}
-        </Avatar.Group>
+        </Group>
       );
     }
 
     case "file":
     case "files": {
       const urls = (Array.isArray(value) ? value : [value]).filter((v): v is string => typeof v === "string");
+      const open = (i: number) => (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openFiles(urls.map((url) => ({ url })), i);
+      };
       if (table) {
         return (
-          <Group gap={4} wrap="nowrap">
-            <IconFile size={14} />
-            <Text span size="sm" truncate>
-              {urls.length === 1 ? fileNameFromUrl(urls[0]) : `${urls.length} files`}
-            </Text>
-          </Group>
+          <Anchor component="button" type="button" onClick={open(0)} size="sm" c="inherit" style={{ maxWidth: "100%" }}>
+            <Group gap={4} wrap="nowrap">
+              <IconFile size={14} />
+              <Text span size="sm" truncate>
+                {urls.length === 1 ? fileNameFromUrl(urls[0]) : `${urls.length} files`}
+              </Text>
+            </Group>
+          </Anchor>
         );
       }
       return (
         <Group gap="xs" wrap="wrap">
-          {urls.map((url) => (
-            <Anchor key={url} href={fileUrl(url)} target="_blank" rel="noopener" size="sm">
+          {urls.map((url, i) => (
+            <Anchor key={url} component="button" type="button" onClick={open(i)} size="sm">
               <Group gap={4} wrap="nowrap">
                 <IconFile size={14} />
                 {fileNameFromUrl(url)}
