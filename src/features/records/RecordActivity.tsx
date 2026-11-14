@@ -125,7 +125,14 @@ export function RecordActivity({
               </Text>
             </Tooltip>
           </Group>
-          <ChangesView changes={entry.changes} labels={labels} names={names} />
+          {entry.action === "create" ? (
+            // what it was created with is on the page already
+            <Text size="sm" c="dimmed">
+              Created the record
+            </Text>
+          ) : (
+            <ChangesView changes={entry.changes} labels={labels} names={names} />
+          )}
         </Box>
       ))}
       {history.hasNextPage && (

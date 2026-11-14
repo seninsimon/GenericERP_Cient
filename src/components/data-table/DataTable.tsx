@@ -89,8 +89,11 @@ export function DataTable<T>(props: DataTableProps<T>) {
   const setPage = (p: number) => (server ? props.onPageChange?.(p) : setLocalPage(p));
   const setPageSize = (size: number) => {
     update({ pageSize: size });
+    // server mode: one change only. Changing the size already goes back to
+    // page 1 (useTableUrlState); a second "page 1" change in the same click
+    // would overwrite the new size in the address.
     if (server) props.onPageSizeChange?.(size);
-    setPage(1);
+    else setLocalPage(1);
   };
 
   // search box: typed text is debounced before it's applied

@@ -132,6 +132,23 @@ shadows in components.**
  248 px (or a 64 px icon rail)
 ```
 
+### Record page (`pages/records/RecordDetailPage.tsx`)
+
+- **The header:** the name, then the table's name and up to 3 choice values
+  as badges, then one-tap **Call / WhatsApp / Email / Website** when the
+  record has them (`features/records/contactValues.ts`).
+- **Details:** two columns of cells on desktop and tablets, one on phones;
+  label above value, with a hairline under each cell (`.detail-cell`).
+  Long links and emails stay on one line ("…", the full value on hover).
+  **Every field is shown in its place,** empty ones with a light "—", so
+  records of a table look alike. No layout toggle. The title field isn't repeated; long text, pictures and files get
+  full-width blocks.
+- **Phone numbers, emails and links are always tappable.** WhatsApp is
+  offered only for mobile numbers.
+- **Linked tables with nothing yet** share one "Linked records" card with an
+  Add button each.
+- **Activity:** creating a record is one line ("Created the record").
+
 ### Files and pictures (`features/files/`)
 
 - **Open uploads in the in-app viewer:** call `openFiles([...], index)`. Never

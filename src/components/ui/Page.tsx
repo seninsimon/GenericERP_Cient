@@ -80,9 +80,12 @@ export function PageHeader({
   meta,
   actions,
   icon,
+  below,
 }: {
   title: ReactNode;
   description?: ReactNode;
+  // anything under the title (badges, buttons): not wrapped in a paragraph
+  below?: ReactNode;
   // small badges/info next to the title
   meta?: ReactNode;
   // buttons on the right; put the primary action LAST
@@ -105,6 +108,7 @@ export function PageHeader({
               {description}
             </Text>
           )}
+          {below}
         </Stack>
       </Group>
       {actions && (

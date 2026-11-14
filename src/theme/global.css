@@ -59,3 +59,11 @@ body {
 .rich-text-view .ProseMirror {
   outline: none;
 }
+
+/* Record page: a field as a cell (label above value), in two columns on
+   wider screens, with a hairline under each so the rows line up */
+.detail-cell {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--app-border);
+  min-width: 0;
+}

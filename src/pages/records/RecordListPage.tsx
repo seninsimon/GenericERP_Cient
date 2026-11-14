@@ -58,9 +58,11 @@ import { formatDateTime, formatNumber, pluralize } from "../../lib/format";
 import { readJson } from "../../lib/storage";
 import { BoardView } from "../../features/records/BoardView";
 import { CalendarView } from "../../features/records/CalendarView";
+import { BulkUpdateModal } from "../../features/records/BulkUpdateModal";
 import { ImportCsvModal } from "../../features/records/ImportCsvModal";
 import { NoTableAccess } from "../../features/records/states";
 import {
+  bulkFields,
   columnLabel,
   FILE_TYPES,
   httpStatus,
@@ -166,6 +168,8 @@ export default function RecordListPage() {
   const deleteOne = useDeleteRecord(table);
   const bulkDelete = useBulkDelete(table);
   const [importOpen, setImportOpen] = useState(false);
+  // the selected rows being updated together (bulk update)
+  const [bulkEdit, setBulkEdit] = useState<{ ids: string[]; clear: () => void } | null>(null);
 
   /* ---------- background jobs (import / export) ---------- */
   const jobsLink = (
@@ -522,24 +526,33 @@ export default function RecordListPage() {
             )}
           </>
         )}
-        selectable={Boolean(perms.delete)}
+        selectable={Boolean(perms.delete || (perms.edit && bulkFields(schema?.columns ?? []).length))}
         bulkActions={(ids, clear) => (
-          <Button
-            color="red"
-            variant="light"
-            leftSection={<IconTrash size={16} />}
-            loading={bulkDelete.isPending}
-            onClick={() =>
-              confirmDanger({
-                title: `Delete ${pluralize(ids.length, "record")}?`,
-                message: "This permanently deletes the selected records and their uploaded files. This can't be undone.",
-                confirmLabel: `Delete ${pluralize(ids.length, "record")}`,
-                onConfirm: () => bulkDelete.mutateAsync(ids).then(clear),
-              })
-            }
-          >
-            Delete
-          </Button>
+          <>
+            {perms.edit && bulkFields(schema?.columns ?? []).length > 0 && (
+              <Button variant="light" leftSection={<IconPencil size={16} />} onClick={() => setBulkEdit({ ids, clear })}>
+                Update
+              </Button>
+            )}
+            {perms.delete && (
+              <Button
+                color="red"
+                variant="light"
+                leftSection={<IconTrash size={16} />}
+                loading={bulkDelete.isPending}
+                onClick={() =>
+                  confirmDanger({
+                    title: `Delete ${pluralize(ids.length, "record")}?`,
+                    message: "This permanently deletes the selected records and their uploaded files. This can't be undone.",
+                    confirmLabel: `Delete ${pluralize(ids.length, "record")}`,
+                    onConfirm: () => bulkDelete.mutateAsync(ids).then(clear),
+                  })
+                }
+              >
+                Delete
+              </Button>
+            )}
+          </>
         )}
         storageKey={storageKey}
         isFiltered={isFiltered}
@@ -628,6 +641,17 @@ export default function RecordListPage() {
             )}
           </Stack>
         </Box>
+      )}
+
+      {schema && bulkEdit && (
+        <BulkUpdateModal
+          table={table}
+          columns={schema.columns}
+          ids={bulkEdit.ids}
+          opened
+          onClose={() => setBulkEdit(null)}
+          onDone={bulkEdit.clear}
+        />
       )}
 
       {schema && (perms.create || perms.edit) && (

@@ -200,3 +200,8 @@ export function newRecordValues(
 
 export const httpStatus = (error: unknown) =>
   (error as { response?: { status?: number } } | null)?.response?.status;
+
+// Fields that can be set on many records at once (bulk update). The server
+// accepts the same types (BULK_UPDATE_TYPES in controllers/records.ts).
+const BULK_TYPES = ["text", "number", "date", "boolean", "relation", "user", "department", "choice", "textarea"];
+export const bulkFields = (columns: RecordColumn[]) => columns.filter((c) => BULK_TYPES.includes(c.type) && !c.inline);

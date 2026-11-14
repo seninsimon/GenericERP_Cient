@@ -2,7 +2,7 @@ import { Anchor, Badge, Button, Group, Skeleton, Stack, Table, Text } from "@man
 import { IconArrowRight, IconPlus } from "@tabler/icons-react";
 import { useMediaQuery } from "@mantine/hooks";
 import { useQueries } from "@tanstack/react-query";
-import { Fragment, useMemo } from "react";
+import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { getTableData } from "../../api/api";
@@ -182,29 +182,36 @@ export function RelatedRecords({
         );
       })}
 
+      {/* tables that could link here but have nothing yet: one tidy card */}
       {empty.length > 0 && (
-        <Text size="sm" c="dimmed">
-          Nothing linked yet in{" "}
-          {empty.map((g, i) => (
-            <Fragment key={`${g.schema.tableName}.${g.column.name}`}>
-              {i > 0 && (i === empty.length - 1 ? " or " : ", ")}
-              <Text span fw={500} c="var(--mantine-color-text)">
-                {name(g)}
-              </Text>
-              {canAdd(g) && (
-                <>
-                  {" "}
-                  (
-                  <Anchor component={Link} to={addLink(g)} state={{ departmentIds }} size="sm">
-                    add
-                  </Anchor>
-                  )
-                </>
-              )}
-            </Fragment>
-          ))}
-          .
-        </Text>
+        <Section title="Linked records" padding="md">
+          <Stack gap={0}>
+            {empty.map((g, i) => (
+              <Group
+                key={`${g.schema.tableName}.${g.column.name}`}
+                justify="space-between"
+                wrap="nowrap"
+                py={8}
+                style={{ borderTop: i ? "1px solid var(--app-border)" : undefined }}
+              >
+                <Text size="sm">
+                  <Text span fw={500}>
+                    {name(g)}
+                  </Text>
+                  <Text span c="dimmed">
+                    {" "}
+                    · none yet
+                  </Text>
+                </Text>
+                {canAdd(g) && (
+                  <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} component={Link} to={addLink(g)} state={{ departmentIds }}>
+                    Add
+                  </Button>
+                )}
+              </Group>
+            ))}
+          </Stack>
+        </Section>
       )}
     </Stack>
   );
